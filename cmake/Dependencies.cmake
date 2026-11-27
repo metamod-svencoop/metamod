@@ -93,6 +93,19 @@ function(mmfg_angelscript_headers)
     target_include_directories(mmfg_angelscript_headers INTERFACE "${source}/angelscript/include")
 endfunction()
 
+function(mmfg_goldsrcext_headers)
+    if(TARGET GoldSrcExt::Headers)
+        return()
+    endif()
+    include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Revisions.cmake")
+    mmfg_source(goldsrcext GOLDSRCEXT_SOURCE_PATH https://github.com/HLND2T/GoldSrcExt.git
+        "${MMFG_GOLDSRCEXT_REVISION}" "include/GoldSrcExt/game_dll_proxy_host.h" source)
+    add_library(mmfg_goldsrcext_headers INTERFACE)
+    add_library(GoldSrcExt::Headers ALIAS mmfg_goldsrcext_headers)
+    target_include_directories(mmfg_goldsrcext_headers INTERFACE "${source}/include")
+    target_compile_features(mmfg_goldsrcext_headers INTERFACE cxx_std_17)
+endfunction()
+
 # Header-only dependencies of the gamedata catalog (src/gamedata.cpp), pinned to
 # the revisions MetaHookSv uses for its GameData implementation.
 function(mmfg_gamedata_headers)
