@@ -592,6 +592,9 @@ END_API_CALLER_FUNC(void*, (unsigned int), (p->ui1));
 BEGIN_API_CALLER_FUNC(ulong, ul)
 END_API_CALLER_FUNC(unsigned long, (unsigned long), (p->ul1));
 
+BEGIN_API_CALLER_FUNC(ptr, up)
+END_API_CALLER_FUNC(void*, (uintptr_t), (p->up1));
+
 //-
 BEGIN_API_CALLER_FUNC(void, i2p)
 END_API_CALLER_FUNC_void((int, const void*, const void*), (p->i1, p->p1, p->p2));
@@ -632,6 +635,9 @@ END_API_CALLER_FUNC(int, (const void*), (p->p1));
 
 BEGIN_API_CALLER_FUNC(uint, p)
 END_API_CALLER_FUNC(unsigned int, (const void*), (p->p1));
+
+BEGIN_API_CALLER_FUNC(uintptr, p)
+END_API_CALLER_FUNC(uintptr_t, (const void*), (p->p1));
 
 BEGIN_API_CALLER_FUNC(float, p)
 END_API_CALLER_FUNC(float, (const void*), (p->p1));

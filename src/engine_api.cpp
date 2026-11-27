@@ -538,14 +538,14 @@ static void mm_GetBonePosition(const edict_t* pEdict, int iBone, float* rgflOrig
     RETURN_API_void()
 }
 
-static uint32 mm_FunctionFromName(const char* pName)
+static uintptr_t mm_FunctionFromName(const char* pName)
 {
-    META_ENGINE_HANDLE(uint32, 0, FN_FUNCTIONFROMNAME, pfnFunctionFromName, p, (pName));
-    RETURN_API(uint32)
+    META_ENGINE_HANDLE(uintptr_t, 0, FN_FUNCTIONFROMNAME, pfnFunctionFromName, p, (pName));
+    RETURN_API(uintptr_t)
 }
-static const char* mm_NameForFunction(uint32 function)
+static const char* mm_NameForFunction(uintptr_t function)
 {
-    META_ENGINE_HANDLE(const char*, NULL, FN_NAMEFORFUNCTION, pfnNameForFunction, ui, (function));
+    META_ENGINE_HANDLE(const char*, NULL, FN_NAMEFORFUNCTION, pfnNameForFunction, up, (function));
     RETURN_API(const char*)
 }
 

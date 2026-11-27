@@ -191,8 +191,8 @@ const engine_info_t engine_info = {
     {mFALSE, 9, api_caller_int_args_pi, "RegUserMsg"},                 // pfnRegUserMsg
     {mFALSE, 9, api_caller_void_args_pf, "AnimationAutomove"},         // pfnAnimationAutomove
     {mFALSE, 9, api_caller_void_args_pi2p, "GetBonePosition"},         // pfnGetBonePosition
-    {mFALSE, 9, api_caller_uint_args_p, "FunctionFromName"},           // pfnFunctionFromName
-    {mFALSE, 9, api_caller_ptr_args_ui, "NameForFunction"},            // pfnNameForFunction
+    {mFALSE, 9, api_caller_uintptr_args_p, "FunctionFromName"},        // pfnFunctionFromName
+    {mFALSE, 9, api_caller_ptr_args_up, "NameForFunction"},            // pfnNameForFunction
     {mFALSE, 9, api_caller_void_args_pip, "ClientPrintf"},             // pfnClientPrintf
     {mFALSE, 9, api_caller_void_args_p, "ServerPrint"},                // pfnServerPrint
     {mFALSE, 13, api_caller_ptr_args_void, "Cmd_Args"},                // pfnCmd_Args

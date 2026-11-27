@@ -23,6 +23,7 @@
 #define INTERFACE_VERSION		140
 #endif // !HLDEMO_BUILD
 
+#include <stdint.h>
 #include <stdio.h>
 #include "custom.h"
 #include "cvardef.h"
@@ -182,8 +183,8 @@ typedef struct enginefuncs_s
 	int			(*pfnRegUserMsg)			(const char *pszName, int iSize);
 	void		(*pfnAnimationAutomove)		(const edict_t* pEdict, float flTime);
 	void		(*pfnGetBonePosition)		(const edict_t* pEdict, int iBone, float *rgflOrigin, float *rgflAngles );
-	uint32 (*pfnFunctionFromName)	( const char *pName );
-	const char *(*pfnNameForFunction)		( uint32 function );
+	uintptr_t (*pfnFunctionFromName)	( const char *pName );
+	const char *(*pfnNameForFunction)		( uintptr_t function );
 	void		(*pfnClientPrintf)			( edict_t* pEdict, PRINT_TYPE ptype, const char *szMsg ); // JOHN: engine callbacks so game DLL can print messages to individual clients
 	void		(*pfnServerPrint)			( const char *szMsg );
 	const char *(*pfnCmd_Args)				( void );		// these 3 added 
