@@ -34,18 +34,14 @@
  *
  */
 
-#include <vector>
-#include <set>
-
 #include <stdio.h>  // vsnprintf(), etc
-#include <stdarg.h> // vs_start(), etc
+#include <stdarg.h> // va_start(), etc
 #include <stdlib.h> // strtol()
 
 #include <extdll.h> // always
 
 #include "meta_api.h"   //
 #include "mutil.h"      // me
-#include "mhook.h"      // class MHookList, etc
 #include "linkent.h"    // ENTITY_FN, etc
 #include "metamod.h"    // Hooks, etc
 #include "types_meta.h" // mBOOL
@@ -54,12 +50,12 @@
 #include "gamedata.h"   // GameData::Resolve, etc
 
 //2022-07 Added by hzqst
-#include "detours.h" // ALERT, etc
-#include <capstone/capstone.h>
+#include "detours.h"
 
 #ifdef _WIN32
 
 #else
+#    include <string>
 #    include <procmap/MemoryMap.hpp>
 #endif
 
@@ -515,77 +511,7 @@ size_t mutil_GetImageSize(void* ImageBase)
     return ((IMAGE_NT_HEADERS*)((char*)ImageBase + ((IMAGE_DOS_HEADER*)ImageBase)->e_lfanew))->OptionalHeader.SizeOfImage;
 }
 
-void* mutil_GetCodeBase(void* ImageBase)
-{
-    if (ImageBase == Engine.info.m_imageStart && GameData::GetRegisteredImageSize(ImageBase))
-        return Engine.info.m_codeStart;
-    auto pDosHeader     = (IMAGE_DOS_HEADER*)ImageBase;
-    auto pNtHeaders     = (IMAGE_NT_HEADERS*)((char*)ImageBase + pDosHeader->e_lfanew);
-    auto pSectionHeader = IMAGE_FIRST_SECTION(pNtHeaders);
-
-    for (int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
-    {
-        // Find first executable and non-writable section (RX)
-        if ((pSectionHeader[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) &&
-            !(pSectionHeader[i].Characteristics & IMAGE_SCN_MEM_WRITE))
-        {
-            return (void*)((char*)ImageBase + pSectionHeader[i].VirtualAddress);
-        }
-    }
-
-    return ImageBase;
-}
-
-size_t mutil_GetCodeSize(void* ImageBase)
-{
-    if (ImageBase == Engine.info.m_imageStart && GameData::GetRegisteredImageSize(ImageBase))
-        return (uintptr_t)Engine.info.m_codeEnd - (uintptr_t)Engine.info.m_codeStart;
-    auto pDosHeader     = (IMAGE_DOS_HEADER*)ImageBase;
-    auto pNtHeaders     = (IMAGE_NT_HEADERS*)((char*)ImageBase + pDosHeader->e_lfanew);
-    auto pSectionHeader = IMAGE_FIRST_SECTION(pNtHeaders);
-
-    // Calculate total size of all executable and non-writable sections (RX)
-    void* code_start = nullptr;
-    void* code_end   = nullptr;
-
-    for (int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
-    {
-        if ((pSectionHeader[i].Characteristics & IMAGE_SCN_MEM_EXECUTE) &&
-            !(pSectionHeader[i].Characteristics & IMAGE_SCN_MEM_WRITE))
-        {
-            void* section_start = (void*)((char*)ImageBase + pSectionHeader[i].VirtualAddress);
-            void* section_end   = (void*)((char*)section_start + pSectionHeader[i].Misc.VirtualSize);
-
-            if (!code_start || section_start < code_start)
-            {
-                code_start = section_start;
-            }
-
-            if (!code_end || section_end > code_end)
-            {
-                code_end = section_end;
-            }
-        }
-    }
-
-    if (code_start && code_end)
-    {
-        return (uintptr_t)code_end - (uintptr_t)code_start;
-    }
-
-    return 0;
-}
-
 #else
-
-static bool ends_with(const std::string& str, const std::string& suffix)
-{
-    if (suffix.size() > str.size())
-    {
-        return false;
-    }
-    return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
-}
 
 static bool contains(const std::string& str, const std::string& substr)
 {
@@ -651,129 +577,7 @@ size_t mutil_GetImageSize(void* ImageBase)
     return imageSize;
 }
 
-void* mutil_GetCodeBase(void* ImageBase)
-{
-    procmap::MemoryMap m;
-    std::string        name;
-
-    // First, find the module name
-    for (auto& segment : m)
-    {
-        if (ImageBase == segment.startAddress())
-        {
-            name = segment.name();
-            break;
-        }
-    }
-
-    if (name.empty())
-    {
-        return ImageBase;
-    }
-
-    // Find the first executable segment of this module
-    for (auto& segment : m)
-    {
-        if (name == segment.name() &&
-            segment.isReadable() &&
-            segment.isExecutable() &&
-            !segment.isWriteable())
-        {
-            return segment.startAddress();
-        }
-    }
-
-    return ImageBase;
-}
-
-size_t mutil_GetCodeSize(void* ImageBase)
-{
-    procmap::MemoryMap m;
-    std::string        name;
-
-    // First, find the module name
-    for (auto& segment : m)
-    {
-        if (ImageBase == segment.startAddress())
-        {
-            name = segment.name();
-            break;
-        }
-    }
-
-    if (name.empty())
-    {
-        return 0;
-    }
-
-    // Find all executable segments and calculate total size
-    void* code_start = nullptr;
-    void* code_end   = nullptr;
-
-    for (auto& segment : m)
-    {
-        if (name == segment.name() &&
-            segment.isReadable() &&
-            segment.isExecutable() &&
-            !segment.isWriteable())
-        {
-
-            if (!code_start || segment.startAddress() < code_start)
-            {
-                code_start = segment.startAddress();
-            }
-
-            if (!code_end || segment.endAddress() > code_end)
-            {
-                code_end = segment.endAddress();
-            }
-        }
-    }
-
-    if (code_start && code_end)
-    {
-        return (uintptr_t)code_end - (uintptr_t)code_start;
-    }
-
-    return 0;
-}
-
 #endif
-
-qboolean mutil_IsAddressInModuleRange(void* lpAddress, void* lpModuleBase)
-{
-#ifdef _WIN32
-    return (char*)lpAddress > (char*)lpModuleBase && (char*)lpAddress < (char*)lpModuleBase + mutil_GetImageSize(lpModuleBase);
-#else
-    Dl_info info;
-    if (dladdr(lpAddress, &info) != 0 && info.dli_fbase == lpModuleBase)
-        return true;
-
-    return false;
-#endif
-}
-
-void* mutil_GetImageBaseFromAddress(void* lpAddress)
-{
-    void* lpBaseAddress = nullptr;
-#ifdef _WIN32
-
-    MEMORY_BASIC_INFORMATION mbi = {0};
-    if (VirtualQuery(lpAddress, &mbi, sizeof(mbi)))
-    {
-        lpBaseAddress = (void*)mbi.AllocationBase;
-    }
-
-#else
-    Dl_info info;
-    if (dladdr(lpAddress, &info) != 0 && info.dli_fbase != nullptr)
-    {
-        lpBaseAddress = (void*)info.dli_fbase;
-    }
-#endif
-
-    return lpBaseAddress;
-}
 
 DLHANDLE mutil_GetGameDllHandle(void)
 {
@@ -795,26 +599,6 @@ void* mutil_GetEngineBase(void)
     return Engine.info.m_imageStart;
 }
 
-void* mutil_GetEngineEnd(void)
-{
-    return Engine.info.m_imageEnd;
-}
-
-void* mutil_GetEngineCodeBase(void)
-{
-    return Engine.info.m_codeStart;
-}
-
-void* mutil_GetEngineCodeEnd(void)
-{
-    return Engine.info.m_codeEnd;
-}
-
-qboolean mutil_IsValidCodePointerInEngine(void* ptr)
-{
-    return Engine.info.is_valid_code_pointer(ptr);
-}
-
 static hook_t* g_pHookBase = NULL;
 
 static hook_t* mutil_NewHook(int iType)
@@ -829,13 +613,7 @@ static hook_t* mutil_NewHook(int iType)
 
 static void mutil_CommitHook(hook_t* pHook)
 {
-    if (pHook->iType == MH_HOOK_VFTABLE)
-    {
-    }
-    else if (pHook->iType == MH_HOOK_IAT)
-    {
-    }
-    else if (pHook->iType == MH_HOOK_INLINE)
+    if (pHook->iType == MH_HOOK_INLINE)
     {
         auto d = (CDetour*)pHook->pInfo;
 
@@ -845,17 +623,7 @@ static void mutil_CommitHook(hook_t* pHook)
 
 static void mutil_FreeHook(hook_t* pHook)
 {
-    if (pHook->iType == MH_HOOK_VFTABLE)
-    {
-        //tagVTABLEDATA *info = (tagVTABLEDATA *)pHook->pInfo;
-        //MH_WriteMemory(info->pVFTInfoAddr, (BYTE *)&pHook->pOldFuncAddr, sizeof(DWORD));
-    }
-    else if (pHook->iType == MH_HOOK_IAT)
-    {
-        //tagIATDATA *info = (tagIATDATA *)pHook->pInfo;
-        //MH_WriteMemory(info->pAPIInfoAddr, (BYTE *)&pHook->pOldFuncAddr, sizeof(DWORD));
-    }
-    else if (pHook->iType == MH_HOOK_INLINE)
+    if (pHook->iType == MH_HOOK_INLINE)
     {
         auto d = (CDetour*)pHook->pInfo;
 
@@ -956,512 +724,6 @@ static hook_t* mutil_InlineHook(void* pOldFuncAddr, void* pNewFuncAddr, void** p
     return h;
 }
 
-static void* mutil_GetNextCallAddr(void* pAddress, int dwCount)
-{
-    static char* pbAddress = NULL;
-
-    if (pAddress)
-        pbAddress = (char*)pAddress;
-    else
-        pbAddress = pbAddress + 5;
-
-    for (int i = 0; i < dwCount; i++)
-    {
-        byte code = *(byte*)pbAddress;
-
-        if (code == 0xFF && *(byte*)(pbAddress + 1) == 0x15)
-        {
-            return *(void**)(pbAddress + 2);
-        }
-
-        if (code == 0xE8)
-        {
-            return (void*)(pbAddress + 5 + *(int*)(pbAddress + 1));
-        }
-
-        pbAddress++;
-    }
-
-    return NULL;
-}
-
-static void* mutil_SearchPattern(void* pStartSearch, size_t dwSearchLen, const char* pPattern, size_t dwPatternLen)
-{
-    char* dwStartAddr = (char*)pStartSearch;
-    char* dwEndAddr   = dwStartAddr + dwSearchLen - dwPatternLen;
-
-    while (dwStartAddr < dwEndAddr)
-    {
-        bool found = true;
-
-        for (size_t i = 0; i < dwPatternLen; i++)
-        {
-            char code = *(char*)(dwStartAddr + i);
-
-            if (pPattern[i] != 0x2A && pPattern[i] != code)
-            {
-                found = false;
-                break;
-            }
-        }
-
-        if (found)
-            return (void*)dwStartAddr;
-
-        dwStartAddr++;
-    }
-
-    return NULL;
-}
-
-static void* mutil_ReverseSearchPattern(void* pStartSearch, size_t dwSearchLen, const char* pPattern, size_t dwPatternLen)
-{
-    char* dwStartAddr = (char*)pStartSearch;
-    char* dwEndAddr   = dwStartAddr - dwSearchLen - dwPatternLen;
-
-    while (dwStartAddr > dwEndAddr)
-    {
-        bool found = true;
-
-        for (size_t i = 0; i < dwPatternLen; i++)
-        {
-            char code = *(char*)(dwStartAddr + i);
-
-            if (pPattern[i] != 0x2A && pPattern[i] != code)
-            {
-                found = false;
-                break;
-            }
-        }
-
-        if (found)
-            return (void*)dwStartAddr;
-
-        dwStartAddr--;
-    }
-
-    return 0;
-}
-
-static int mutil_DisasmSingleInstruction(void* address, fnDisasmSingleCallback callback, void* context)
-{
-    int instLen = 0;
-    csh handle  = 0;
-    if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) == CS_ERR_OK)
-    {
-        if (cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON) == CS_ERR_OK)
-        {
-            cs_insn* insts = NULL;
-            size_t   count = 0;
-
-            const uint8_t* addr  = (uint8_t*)address;
-            uint64_t       vaddr = ((uint64_t)address & 0x00000000FFFFFFFFull);
-            size_t         size  = 15;
-
-#ifdef _WIN32
-            bool accessable = !IsBadReadPtr(addr, size);
-
-            if (accessable)
-#endif
-            {
-                count = cs_disasm(handle, addr, size, vaddr, 1, &insts);
-                if (count)
-                {
-                    callback(insts, (byte*)address, insts->size, context);
-
-                    instLen += insts->size;
-                }
-            }
-
-            if (insts)
-            {
-                cs_free(insts, count);
-                insts = NULL;
-            }
-        }
-        cs_close(&handle);
-    }
-
-    return instLen;
-}
-
-static qboolean mutil_DisasmRanges(void* DisasmBase, size_t DisasmSize, fnDisasmCallback callback, int depth, void* context)
-{
-    qboolean success = false;
-
-    csh handle = 0;
-    if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) == CS_ERR_OK)
-    {
-        cs_insn* insts     = NULL;
-        size_t   count     = 0;
-        int      instCount = 1;
-
-        if (cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON) == CS_ERR_OK)
-        {
-            byte* pAddress = (byte*)DisasmBase;
-
-            do
-            {
-                const uint8_t* addr  = (uint8_t*)pAddress;
-                uint64_t       vaddr = ((uint64_t)pAddress & 0x00000000FFFFFFFFull);
-                size_t         size  = 15;
-
-                if (insts)
-                {
-                    cs_free(insts, count);
-                    insts = NULL;
-                }
-#ifdef _WIN32
-                bool accessable = !IsBadReadPtr(addr, size);
-
-                if (!accessable)
-                    break;
-#endif
-
-                count = cs_disasm(handle, addr, size, vaddr, 1, &insts);
-                if (!count)
-                    break;
-
-                size_t instLen = insts[0].size;
-                if (!instLen)
-                    break;
-
-                if (callback(&insts[0], pAddress, instLen, instCount, depth, context))
-                {
-                    success = true;
-                    break;
-                }
-
-                pAddress += instLen;
-                instCount++;
-            } while (pAddress < (byte*)DisasmBase + DisasmSize);
-        }
-
-        if (insts)
-        {
-            cs_free(insts, count);
-            insts = NULL;
-        }
-
-        cs_close(&handle);
-    }
-
-    return success;
-}
-
-class walk_context_t
-{
-public:
-    walk_context_t()
-    {
-        address = 0;
-        len     = 0;
-        depth   = 0;
-    }
-    walk_context_t(void* a, size_t l, int d) : address(a), len(l), depth(d)
-    {
-    }
-    void*  address;
-    size_t len;
-    int    depth;
-};
-
-typedef struct
-{
-    void*                       base;
-    size_t                      max_insts;
-    int                         max_depth;
-    std::set<uintp>             code;
-    std::set<uintp>             branches;
-    std::vector<walk_context_t> walks;
-
-    void* DesiredAddress;
-    bool  bFoundDesiredAddress;
-} MH_ReverseSearchFunctionBegin_ctx;
-
-typedef struct
-{
-    bool bPushRegister;
-    bool bSubEspImm;
-} MH_ReverseSearchFunctionBegin_ctx2;
-
-static void* mutil_ReverseSearchFunctionBegin(void* SearchBegin, size_t SearchSize)
-{
-    byte* SearchPtr = (byte*)SearchBegin;
-    byte* SearchEnd = (byte*)SearchBegin - SearchSize;
-
-    while (SearchPtr > SearchEnd)
-    {
-        void* Candidate    = NULL;
-        bool  bShouldCheck = false;
-
-        if (SearchPtr[0] == 0xCC || SearchPtr[0] == 0x90 || SearchPtr[0] == 0xC3)
-        {
-            if (SearchPtr[1] == 0xCC || SearchPtr[1] == 0x90)
-            {
-                if (SearchPtr[2] != 0x90 &&
-                    SearchPtr[2] != 0xCC)
-                {
-                    bShouldCheck = true;
-                    Candidate    = SearchPtr + 2;
-                }
-            }
-            else if (
-                SearchPtr[1] != 0x90 &&
-                SearchPtr[1] != 0xCC)
-            {
-                MH_ReverseSearchFunctionBegin_ctx2 ctx2 = {0};
-
-                mutil_DisasmSingleInstruction(SearchPtr + 1, [](void* inst, byte* address, size_t instLen, void* context) {
-                    auto pinst = (cs_insn*)inst;
-                    auto ctx   = (MH_ReverseSearchFunctionBegin_ctx2*)context;
-
-                    if (pinst->id == X86_INS_PUSH &&
-                        pinst->detail->x86.op_count == 1 &&
-                        pinst->detail->x86.operands[0].type == X86_OP_REG)
-                    {
-                        ctx->bPushRegister = true;
-                    }
-                    else if (pinst->id == X86_INS_SUB &&
-                             pinst->detail->x86.op_count == 2 &&
-                             pinst->detail->x86.operands[0].type == X86_OP_REG &&
-                             pinst->detail->x86.operands[0].reg == X86_REG_ESP &&
-                             pinst->detail->x86.operands[1].type == X86_OP_IMM)
-                    {
-                        ctx->bSubEspImm = true;
-                    } }, &ctx2);
-
-                if (ctx2.bPushRegister || ctx2.bSubEspImm)
-                {
-                    bShouldCheck = true;
-                    Candidate    = SearchPtr + 1;
-                }
-            }
-        }
-
-        if (bShouldCheck)
-        {
-            MH_ReverseSearchFunctionBegin_ctx ctx = {0};
-
-            ctx.bFoundDesiredAddress = false;
-            ctx.DesiredAddress       = SearchBegin;
-            ctx.base                 = Candidate;
-            ctx.max_insts            = 1000;
-            ctx.max_depth            = 16;
-            ctx.walks.emplace_back(ctx.base, 0x1000, 0);
-
-            while (ctx.walks.size())
-            {
-                auto walk = ctx.walks[ctx.walks.size() - 1];
-                ctx.walks.pop_back();
-
-                mutil_DisasmRanges(walk.address, walk.len, [](void* inst, byte* address, size_t instLen, int instCount, int depth, void* context) -> qboolean {
-						auto pinst = (cs_insn *)inst;
-						auto ctx = (MH_ReverseSearchFunctionBegin_ctx *)context;
-
-						if (address == ctx->DesiredAddress)
-						{
-							ctx->bFoundDesiredAddress = true;
-							return true;
-						}
-
-						if (ctx->code.size() > ctx->max_insts)
-							return true;
-
-						if (ctx->code.find((uintp)address) != ctx->code.end())
-							return true;
-
-						ctx->code.emplace((uintp)address);
-
-						if ((pinst->id == X86_INS_JMP || (pinst->id >= X86_INS_JAE && pinst->id <= X86_INS_JS)) &&
-							pinst->detail->x86.op_count == 1 &&
-							pinst->detail->x86.operands[0].type == X86_OP_IMM)
-						{
-							void *imm = (void *)pinst->detail->x86.operands[0].imm;
-							auto foundbranch = ctx->branches.find((uintp)imm);
-							if (foundbranch == ctx->branches.end())
-							{
-								ctx->branches.emplace((uintp)imm);
-								if (depth + 1 < ctx->max_depth)
-									ctx->walks.emplace_back(imm, 0x300, depth + 1);
-							}
-
-							if (pinst->id == X86_INS_JMP)
-								return true;
-						}
-
-						if (address[0] == 0xCC)
-							return true;
-
-						if (pinst->id == X86_INS_RET)
-							return true;
-
-						return false; }, walk.depth, &ctx);
-            }
-
-            if (ctx.bFoundDesiredAddress)
-            {
-                return Candidate;
-            }
-        }
-
-        SearchPtr--;
-    }
-
-    return NULL;
-}
-
-static void* mutil_ReverseSearchFunctionBeginEx(void* SearchBegin, size_t SearchSize, fnFindAddressCallback callback)
-{
-    byte* SearchPtr = (byte*)SearchBegin;
-    byte* SearchEnd = (byte*)SearchBegin - SearchSize;
-
-    while (SearchPtr > SearchEnd)
-    {
-        void* Candidate    = NULL;
-        bool  bShouldCheck = false;
-
-        if (SearchPtr[0] == 0xCC || SearchPtr[0] == 0x90 || SearchPtr[0] == 0xC3)
-        {
-            if (SearchPtr[1] == 0xCC || SearchPtr[1] == 0x90)
-            {
-                if (SearchPtr[2] != 0x90 &&
-                    SearchPtr[2] != 0xCC)
-                {
-                    bShouldCheck = true;
-                    Candidate    = SearchPtr + 2;
-                }
-            }
-            else if (
-                SearchPtr[1] != 0x90 &&
-                SearchPtr[1] != 0xCC)
-            {
-                MH_ReverseSearchFunctionBegin_ctx2 ctx2 = {0};
-
-                mutil_DisasmSingleInstruction(SearchPtr + 1, [](void* inst, byte* address, size_t instLen, void* context) {
-                    auto pinst = (cs_insn*)inst;
-                    auto ctx   = (MH_ReverseSearchFunctionBegin_ctx2*)context;
-
-                    if (pinst->id == X86_INS_PUSH &&
-                        pinst->detail->x86.op_count == 1 &&
-                        pinst->detail->x86.operands[0].type == X86_OP_REG)
-                    {
-                        ctx->bPushRegister = true;
-                    }
-                    else if (pinst->id == X86_INS_SUB &&
-                             pinst->detail->x86.op_count == 2 &&
-                             pinst->detail->x86.operands[0].type == X86_OP_REG &&
-                             pinst->detail->x86.operands[0].reg == X86_REG_ESP &&
-                             pinst->detail->x86.operands[1].type == X86_OP_IMM)
-                    {
-                        ctx->bSubEspImm = true;
-                    } }, &ctx2);
-
-                if (ctx2.bPushRegister || ctx2.bSubEspImm)
-                {
-                    bShouldCheck = true;
-                    Candidate    = SearchPtr + 1;
-                }
-            }
-        }
-
-        if (bShouldCheck && callback((byte*)Candidate))
-        {
-            MH_ReverseSearchFunctionBegin_ctx ctx = {0};
-
-            ctx.bFoundDesiredAddress = false;
-            ctx.DesiredAddress       = SearchBegin;
-            ctx.base                 = Candidate;
-            ctx.max_insts            = 1000;
-            ctx.max_depth            = 16;
-            ctx.walks.emplace_back(ctx.base, 0x1000, 0);
-
-            while (ctx.walks.size())
-            {
-                auto walk = ctx.walks[ctx.walks.size() - 1];
-                ctx.walks.pop_back();
-
-                mutil_DisasmRanges(walk.address, walk.len, [](void* inst, unsigned char* address, size_t instLen, int instCount, int depth, void* context) -> qboolean {
-						auto pinst = (cs_insn*)inst;
-						auto ctx = (MH_ReverseSearchFunctionBegin_ctx*)context;
-
-						if (address == ctx->DesiredAddress)
-						{
-							ctx->bFoundDesiredAddress = true;
-							return true;
-						}
-
-						if (ctx->code.size() > ctx->max_insts)
-							return true;
-
-						if (ctx->code.find((uintp)address) != ctx->code.end())
-							return true;
-
-						ctx->code.emplace((uintp)address);
-
-						if ((pinst->id == X86_INS_JMP || (pinst->id >= X86_INS_JAE && pinst->id <= X86_INS_JS)) &&
-							pinst->detail->x86.op_count == 1 &&
-							pinst->detail->x86.operands[0].type == X86_OP_IMM)
-						{
-							void * imm = (void *)pinst->detail->x86.operands[0].imm;
-							auto foundbranch = ctx->branches.find((uintp)imm);
-							if (foundbranch == ctx->branches.end())
-							{
-								ctx->branches.emplace((uintp)imm);
-								if (depth + 1 < ctx->max_depth)
-									ctx->walks.emplace_back(imm, 0x300, depth + 1);
-							}
-
-							if (pinst->id == X86_INS_JMP)
-								return true;
-						}
-
-						if (address[0] == 0xCC)
-							return true;
-
-						if (pinst->id == X86_INS_RET)
-							return true;
-
-						return false; }, walk.depth, &ctx);
-            }
-
-            if (ctx.bFoundDesiredAddress)
-            {
-                return Candidate;
-            }
-        }
-
-        SearchPtr--;
-    }
-
-    return NULL;
-}
-
-static sv_blending_interface_t* mutil_GetServerStudioBlendInterface()
-{
-    return GameDLL.funcs.studio_blend_api;
-}
-
-static sv_blending_interface_t* mutil_GetEngineStudioBlendInterface()
-{
-    return Engine.engine_studioblend;
-}
-
-static server_studio_api_t* mutil_GetEngineStudioAPI()
-{
-    return Engine.engine_studioapi;
-}
-
-static float* mutil_GetRotationMatrix()
-{
-    return (float*)Engine.engine_rotationmatrix;
-}
-
-static float* mutil_GetBoneMatrix()
-{
-    return (float*)Engine.engine_bonetransform;
-}
-
 static const char* mutil_GetEngineType()
 {
     return Engine.info.type();
@@ -1498,45 +760,21 @@ mutil_funcs_t MetaUtilFunctions = {
     mutil_MakeRequestID,            // pfnMakeRequestID
     mutil_GetHookTables,            // pfnGetHookTables
 
-    //2022-07 Added by hzqst
+    // 2022-07..2026-11 Custom metamod-svencoop extensions (interface 5:18)
     mutil_GetModuleBaseByHandle,
     mutil_GetModuleHandle,
     mutil_GetModuleBaseByName,
-    mutil_GetImageSize,
-    mutil_IsAddressInModuleRange,
     mutil_GetGameDllHandle,
     mutil_GetGameDllBase,
     mutil_GetEngineHandle,
     mutil_GetEngineBase,
-    mutil_GetEngineEnd,
-    mutil_GetEngineCodeBase,
-    mutil_GetEngineCodeEnd,
-    mutil_IsValidCodePointerInEngine,
-    mutil_UnHook,
-    mutil_InlineHook,
-    mutil_GetNextCallAddr,
-    mutil_SearchPattern,
-    mutil_ReverseSearchPattern,
-    mutil_DisasmSingleInstruction,
-    mutil_DisasmRanges,
-    mutil_ReverseSearchFunctionBegin,
-    mutil_ReverseSearchFunctionBeginEx,
     mutil_CloseModuleHandle,
     mutil_LoadLibrary,
     mutil_FreeLibrary,
     mutil_GetProcAddress,
-    mutil_GetServerStudioBlendInterface,
-    mutil_GetEngineStudioBlendInterface,
-    mutil_GetEngineStudioAPI,
-    mutil_GetRotationMatrix,
-    mutil_GetBoneMatrix,
-
-    //2024-10 added by hzqst
+    mutil_UnHook,
+    mutil_InlineHook,
     mutil_GetEngineType,
-    //2026-01-03 added by hzqst
-    mutil_GetCodeBase,
-    mutil_GetCodeSize,
-    //2026-10 added by hzqst
     mutil_ResolveGameSymbol,
     mutil_GetGameSymbolStatusString,
 };

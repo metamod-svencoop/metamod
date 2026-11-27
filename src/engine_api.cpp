@@ -41,12 +41,11 @@
 
 #include <extdll.h> // always
 
-#include "engine_api.h"      // me
-#include "metamod.h"         // SETUP_API_CALLS, etc
-#include "thread_logparse.h" // LogQueue, etc
-#include "api_info.h"        // dllapi_info, etc
-#include "log_meta.h"        // META_ERROR, etc
-#include "osdep.h"           // win32 vsnprintf, etc
+#include "engine_api.h" // me
+#include "metamod.h"    // SETUP_API_CALLS, etc
+#include "api_info.h"   // dllapi_info, etc
+#include "log_meta.h"   // META_ERROR, etc
+#include "osdep.h"      // win32 vsnprintf, etc
 #include "api_hook.h"
 
 
@@ -65,44 +64,33 @@
     API_END_TSC_TRACKING()
 
 // For varargs functions
-#ifndef DO_NOT_FIX_VARARG_ENGINE_API_WARPERS
-#    define MAKE_FORMATED_STRING(szFmt)                                 \
-        char  strbuf[MAX_STRBUF_LEN];                                   \
-        char* buf = strbuf;                                             \
-        {                                                               \
-            int     len;                                                \
-            va_list vargs;                                              \
-            va_start(vargs, szFmt);                                     \
-            len = safe_vsnprintf(strbuf, sizeof(strbuf), szFmt, vargs); \
-            va_end(vargs);                                              \
-            if ((unsigned)len >= sizeof(strbuf))                        \
-            {                                                           \
-                buf = (char*)malloc(len + 1);                           \
-                if (buf)                                                \
-                {                                                       \
-                    va_start(vargs, szFmt);                             \
-                    safevoid_vsnprintf(buf, len + 1, szFmt, vargs);     \
-                    va_end(vargs);                                      \
-                }                                                       \
-                else                                                    \
-                {                                                       \
-                    buf = strbuf;                                       \
-                }                                                       \
-            }                                                           \
-        }
-#    define CLEAN_FORMATED_STRING() \
-        if (buf != strbuf)          \
-            free(buf);
-#else
-#    define MAKE_FORMATED_STRING(szFmt)                  \
-        char    buf[MAX_STRBUF_LEN];                     \
-        va_list ap;                                      \
-        va_start(ap, szFmt);                             \
-        safevoid_vsnprintf(buf, sizeof(buf), szFmt, ap); \
-        va_end(ap);
-
-#    define CLEAN_FORMATED_STRING()
-#endif
+#define MAKE_FORMATED_STRING(szFmt)                                 \
+    char  strbuf[MAX_STRBUF_LEN];                                   \
+    char* buf = strbuf;                                             \
+    {                                                               \
+        int     len;                                                \
+        va_list vargs;                                              \
+        va_start(vargs, szFmt);                                     \
+        len = safe_vsnprintf(strbuf, sizeof(strbuf), szFmt, vargs); \
+        va_end(vargs);                                              \
+        if ((unsigned)len >= sizeof(strbuf))                        \
+        {                                                           \
+            buf = (char*)malloc(len + 1);                           \
+            if (buf)                                                \
+            {                                                       \
+                va_start(vargs, szFmt);                             \
+                safevoid_vsnprintf(buf, len + 1, szFmt, vargs);     \
+                va_end(vargs);                                      \
+            }                                                       \
+            else                                                    \
+            {                                                       \
+                buf = strbuf;                                       \
+            }                                                       \
+        }                                                           \
+    }
+#define CLEAN_FORMATED_STRING() \
+    if (buf != strbuf)          \
+        free(buf);
 
 // Engine routines, printf-style functions returning "void".
 #define META_ENGINE_HANDLE_void_varargs(FN_TYPE, pfnName, pack_args_type, pfn_arg, fmt_arg)                                  \
@@ -456,24 +444,14 @@ static void mm_AlertMessage(ALERT_TYPE atype, const char* szFmt, ...)
     META_ENGINE_HANDLE_void_varargs(FN_ALERTMESSAGE, pfnAlertMessage, ipV, atype, szFmt);
     RETURN_API_void()
 }
-#ifdef HLSDK_3_2_OLD_EIFACE
-static void mm_EngineFprintf(FILE* pfile, char* szFmt, ...)
-{
-#else
 static void mm_EngineFprintf(void* pfile, char* szFmt, ...)
 {
-#endif
     META_ENGINE_HANDLE_void_varargs(FN_ENGINEFPRINTF, pfnEngineFprintf, 2pV, pfile, szFmt);
     RETURN_API_void()
 }
 
-#ifdef HLSDK_3_2_OLD_EIFACE
-static void* mm_PvAllocEntPrivateData(edict_t* pEdict, long cb)
-{
-#else
 static void* mm_PvAllocEntPrivateData(edict_t* pEdict, int32 cb)
 {
-#endif
     META_ENGINE_HANDLE(void*, NULL, FN_PVALLOCENTPRIVATEDATA, pfnPvAllocEntPrivateData, pi, (pEdict, cb));
     RETURN_API(void*)
 }
@@ -560,26 +538,13 @@ static void mm_GetBonePosition(const edict_t* pEdict, int iBone, float* rgflOrig
     RETURN_API_void()
 }
 
-#ifdef HLSDK_3_2_OLD_EIFACE
-static unsigned long mm_FunctionFromName(const char* pName)
-{
-    META_ENGINE_HANDLE(unsigned long, 0, FN_FUNCTIONFROMNAME, pfnFunctionFromName, p, (pName));
-    RETURN_API(unsigned long)
-}
-#else
 static uint32 mm_FunctionFromName(const char* pName)
 {
     META_ENGINE_HANDLE(uint32, 0, FN_FUNCTIONFROMNAME, pfnFunctionFromName, p, (pName));
     RETURN_API(uint32)
 }
-#endif
-#ifdef HLSDK_3_2_OLD_EIFACE
-static const char* mm_NameForFunction(unsigned long function)
-{
-#else
 static const char* mm_NameForFunction(uint32 function)
 {
-#endif
     META_ENGINE_HANDLE(const char*, NULL, FN_NAMEFORFUNCTION, pfnNameForFunction, ui, (function));
     RETURN_API(const char*)
 }
@@ -640,19 +605,11 @@ static CRC32_t mm_CRC32_Final(CRC32_t pulCRC)
     RETURN_API(CRC32_t)
 }
 
-#ifdef HLSDK_3_2_OLD_EIFACE
-static long mm_RandomLong(long lLow, long lHigh)
-{
-    META_ENGINE_HANDLE(long, 0, FN_RANDOMLONG, pfnRandomLong, 2i, (lLow, lHigh));
-    RETURN_API(long)
-}
-#else
 static int32 mm_RandomLong(int32 lLow, int32 lHigh)
 {
     META_ENGINE_HANDLE(int32, 0, FN_RANDOMLONG, pfnRandomLong, 2i, (lLow, lHigh));
     RETURN_API(int32)
 }
-#endif
 static float mm_RandomFloat(float flLow, float flHigh)
 {
     META_ENGINE_HANDLE(float, 0.0, FN_RANDOMFLOAT, pfnRandomFloat, 2f, (flLow, flHigh));

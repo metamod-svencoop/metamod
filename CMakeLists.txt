@@ -29,25 +29,20 @@ add_library(metamod SHARED
     src/game_autodetect.cpp
     src/game_support.cpp
     src/h_export.cpp
-    src/linkgame.cpp
     src/linkplug.cpp
     src/log_meta.cpp
     src/metamod.cpp
     src/meta_eiface.cpp
-    src/mhook.cpp
     src/mlist.cpp
     src/mplayer.cpp
     src/mplugin.cpp
-    src/mqueue.cpp
     src/mreg.cpp
     src/mutil.cpp
     src/osdep.cpp
     src/osdep_p.cpp
     src/reg_support.cpp
     src/sdk_util.cpp
-    src/studioapi.cpp
     src/support_meta.cpp
-    src/thread_logparse.cpp
     src/vdate.cpp
 )
 mmfg_configure_target(metamod)

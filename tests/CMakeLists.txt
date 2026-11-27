@@ -167,6 +167,13 @@ add_dependencies(mmfg_test_api_hook mmfg_test_hook_plugin)
 target_compile_definitions(mmfg_test_api_hook PRIVATE
     "MMFG_TEST_HOOK_PLUGIN=\"$<TARGET_FILE:mmfg_test_hook_plugin>\"")
 
+mmetest_add(mmfg_test_mplugin_ifvers
+    SOURCES "${CMAKE_CURRENT_LIST_DIR}/test_mplugin_ifvers.cpp"
+        ${MMFG_TEST_PLUGIN_SOURCES})
+add_dependencies(mmfg_test_mplugin_ifvers mmfg_test_hook_plugin)
+target_compile_definitions(mmfg_test_mplugin_ifvers PRIVATE
+    "MMFG_TEST_HOOK_PLUGIN=\"$<TARGET_FILE:mmfg_test_hook_plugin>\"")
+
 # Optional comparison using an earlier dispatcher with the same harness,
 # support code and compiler flags. Keep the exported source in the build tree.
 set(MMFG_METAMOD_HOOK_BASELINE_SOURCE "" CACHE FILEPATH

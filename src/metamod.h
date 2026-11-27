@@ -205,6 +205,10 @@ void DLLINTERNAL  meta_init_gamedata(void);
 
 #ifdef META_PERFMON
 
+#    ifdef _MSC_VER
+#        include <intrin.h>
+#    endif
+
 // ============================================================================
 // Api-hook performance monitoring
 // ============================================================================
@@ -216,23 +220,18 @@ extern unsigned long long min_tsc    DLLHIDDEN;
 
 inline unsigned long long DLLINTERNAL GET_TSC(void)
 {
+#    ifdef __GNUC__
     union
     {
         struct
         { unsigned int eax, edx; } split;
         unsigned long long full;
     } tsc;
-#    ifdef __GNUC__
     __asm__ __volatile__("rdtsc" : "=a"(tsc.split.eax), "=d"(tsc.split.edx));
-#    else
-    __asm
-    {
-		rdtsc
-		mov tsc.split.eax, eax
-		mov tsc.split.edx, edx
-    }
-#    endif
     return (tsc.full);
+#    else
+    return __rdtsc();
+#    endif
 }
 
 #    define API_START_TSC_TRACKING() \

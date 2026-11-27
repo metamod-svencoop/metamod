@@ -46,26 +46,14 @@
 
 void DLLINTERNAL do_exit(int exitval);
 
-//use pointer to avoid inlining of strcmp
 inline int DLLINTERNAL mm_strcmp(const char* s1, const char* s2)
 {
-#if 0
-	int (*__strcmp)(const char*, const char*) = &strcmp;
-	return((*__strcmp)(s1, s2));
-#else
     return (strcmp(s1, s2));
-#endif
 }
 
-//use pointer to avoid inlining of strncmp
 inline int DLLINTERNAL mm_strncmp(const char* s1, const char* s2, size_t n)
 {
-#if 0
-	int (*__strncmp)(const char*, const char*, size_t) = &strncmp;
-	return((*__strncmp)(s1, s2, n));
-#else
     return (strncmp(s1, s2, n));
-#endif
 }
 
 // Unlike snprintf(), strncpy() doesn't necessarily null-terminate the
@@ -96,23 +84,6 @@ inline int DLLINTERNAL mm_strncmp(const char* s1, const char* s2, size_t n)
 // statements into one, for use in situations like non-braced else
 // statements.
 
-// Technique 1: use "do..while":
-#if 0
-#    define STRNCPY(dst, src, size)      \
-        do                               \
-        {                                \
-            strcpy(dst, "\0");           \
-            strncat(dst, src, size - 1); \
-        } while (0)
-#endif
-
-// Technique 2: use parens and commas:
-#if 0
-#    define STRNCPY(dst, src, size) \
-        (strcpy(dst, "\0"), strncat(dst, src, size - 1))
-#endif
-
-// Technique 3: use inline
 inline char* DLLINTERNAL STRNCPY(char* dst, const char* src, int size)
 {
     return (strncat(&(*dst = 0), src, size - 1));

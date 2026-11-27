@@ -115,28 +115,6 @@ static int test_trampoline_walk_follows_chained_forwarders(void)
     return 0;
 }
 
-static int test_construct_jmp_instruction(void)
-{
-    alignas(unsigned long) unsigned char code[BYTES_SIZE];
-    char                                 place[16];
-    unsigned long                        place_addr;
-    unsigned long                        target_addr;
-    unsigned long                        encoded;
-
-    TEST("construct_jmp_instruction - encodes a relative jump");
-    memset(code, 0, sizeof(code));
-    place_addr  = (unsigned long)place;
-    target_addr = place_addr + 0x1000;
-
-    construct_jmp_instruction(code, (void*)place_addr, (void*)target_addr);
-
-    ASSERT_INT(code[0], 0xe9);
-    memcpy(&encoded, code + 1, sizeof(encoded));
-    ASSERT_TRUE(encoded == target_addr - (place_addr + BYTES_SIZE));
-    PASS();
-    return 0;
-}
-
 int main(void)
 {
     int fail = 0;
@@ -147,7 +125,6 @@ int main(void)
     fail |= test_trampoline_rejects_partial_matches();
     fail |= test_trampoline_walk_does_not_follow_plain_code();
     fail |= test_trampoline_walk_follows_chained_forwarders();
-    fail |= test_construct_jmp_instruction();
 
     printf("\n%d/%d checks passed\n", tests_passed, tests_run);
     return fail;
