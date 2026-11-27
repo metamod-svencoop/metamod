@@ -98,7 +98,6 @@ char* DLLINTERNAL my_strlwr(char* s)
 #endif
 
 
-#ifndef DO_NOT_FIX_VARARG_ENGINE_API_WARPERS
 // Microsoft's msvcrt.dll:vsnprintf is buggy and so is vsnprintf on some glibc versions.
 // We use wrapper function to fix bugs.
 //  from: http://sourceforge.net/tracker/index.php?func=detail&aid=1083721&group_id=2435&atid=102435
@@ -203,7 +202,6 @@ int DLLINTERNAL safe_snprintf(char* s, size_t n, const char* format, ...)
 
     return (res);
 }
-#endif
 
 void DLLINTERNAL safevoid_vsnprintf(char* s, size_t n, const char* format, va_list ap)
 {

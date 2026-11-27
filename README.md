@@ -24,7 +24,7 @@ overrides the default. Existing build trees retain their cached install prefix.
 
 Metamod loads every `index.json` under `addons/metamod/gamedata/` before plugins attach
 and exposes the merged [GoldSrc_VibeSignatures](https://github.com/hlnd2t/GoldSrc_VibeSignatures)
-catalog through `pfnResolveGameSymbol` (interface 5:17). Symbols are looked up by the CRC-64
+catalog through `pfnResolveGameSymbol` (interface 5:18). Symbols are looked up by the CRC-64
 of the loaded module file and their `symbolName`. `scripts/sync-gamedata.py` is the shared
 build-time synchronizer used by plugins through `mmfg_add_gamedata()`.
 
@@ -34,7 +34,7 @@ mapped sections and public engine function bytes to the running image. Its raw
 file CRC identifies gamedata; the verified mapped base is used for RVAs. Missing,
 ambiguous or mismatched files are rejected. No approximate base, decrypted-file
 identity, fake module handle or additional engine loader is used. This support
-keeps the public 5:17 interface unchanged.
+keeps the public 5:18 interface unchanged.
 
 Dependency CMake variables override environment defaults. An empty path fetches a fixed
 commit; invalid explicit paths fail. External source trees are read-only inputs.

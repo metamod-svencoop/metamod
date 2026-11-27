@@ -40,21 +40,20 @@
 #include <extdll.h>          // always
 #include "enginecallbacks.h" // GET_GAME_DIR, etc
 
-#include "metamod.h"         // me
-#include "h_export.h"        // GIVE_ENGINE_FUNCTIONS_FN, etc
-#include "mreg.h"            // class mCmdList, etc
-#include "meta_api.h"        // meta_globals_t, etc
-#include "mutil.h"           // mutil_funcs_t, etc
-#include "osdep.h"           // DLOPEN, getcwd, is_absolute_path,
-#include "reg_support.h"     // meta_AddServerCommand, etc
-#include "game_support.h"    // lookup_game, etc
-#include "commands_meta.h"   // meta_register_cmdcvar, etc
-#include "thread_logparse.h" // logparse_handle, etc
-#include "support_meta.h"    // valid_gamedir_file, etc
-#include "log_meta.h"        // META_LOG, etc
-#include "types_meta.h"      // mBOOL
-#include "info_name.h"       // VNAME, etc
-#include "vdate.h"           // COMPILE_TIME, etc
+#include "metamod.h"       // me
+#include "h_export.h"      // GIVE_ENGINE_FUNCTIONS_FN, etc
+#include "mreg.h"          // class mCmdList, etc
+#include "meta_api.h"      // meta_globals_t, etc
+#include "mutil.h"         // mutil_funcs_t, etc
+#include "osdep.h"         // DLOPEN, getcwd, is_absolute_path,
+#include "reg_support.h"   // meta_AddServerCommand, etc
+#include "game_support.h"  // lookup_game, etc
+#include "commands_meta.h" // meta_register_cmdcvar, etc
+#include "support_meta.h"  // valid_gamedir_file, etc
+#include "log_meta.h"      // META_LOG, etc
+#include "types_meta.h"    // mBOOL
+#include "info_name.h"     // VNAME, etc
+#include "vdate.h"         // COMPILE_TIME, etc
 #include "linkent.h"
 #include "gamedata.h" // GameData::Initialize, etc
 

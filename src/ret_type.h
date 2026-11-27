@@ -31,6 +31,8 @@
 #ifndef RET_TYPE_H
 #define RET_TYPE_H
 
+#include <stdint.h>
+
 #include "new_baseclass.h"
 
 class class_ret_t : public class_metamod_new
@@ -46,6 +48,9 @@ public:
     inline class_ret_t(char c) { data.i = c; };
     inline class_ret_t(unsigned int ui) { data.ui = ui; };
     inline class_ret_t(unsigned long ui) { data.ui = ui; };
+#if defined(_WIN64)
+    inline class_ret_t(unsigned long long up) { data.up = (uintptr_t)up; };
+#endif
     inline class_ret_t(unsigned short us) { data.ui = us; };
     inline class_ret_t(unsigned char uc) { data.ui = uc; };
 
@@ -62,6 +67,7 @@ private:
     {
         void*         p;
         const char*   pc;
+        uintptr_t     up;
         float         f;
         long          i;
         unsigned long ui;

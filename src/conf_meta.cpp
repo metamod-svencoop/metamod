@@ -130,16 +130,6 @@ mBOOL DLLINTERNAL MConfig::set(option_t* setp, const char* setstr)
             *optstr = strdup(pathbuf);
             META_DEBUG(3, ("set config path: %s = %s", setp->name, *optstr));
             break;
-#if 0
-		case CF_CVAR:
-			CVAR_SET_STRING(optcvar->name, setstr);
-			META_DEBUG(3, ("set config cvar: %s = %s", optcvar->name, setstr));
-			break;
-		case CF_CMD:
-			optcmd(setp->name, setstr);
-			META_DEBUG(3, ("set config command: %s, %s", optcvar->name, setstr));
-			break;
-#endif
         default:
             META_WARNING("unrecognized config type '%d'", setp->type);
             RETURN_ERRNO(mFALSE, ME_ARGUMENT);
@@ -237,14 +227,6 @@ void DLLINTERNAL MConfig::show(void)
                 META_CONS("   %-20s\t%s\n", optp->name,
                           *optstr ? *optstr : "");
                 break;
-#if 0
-			case CF_CVAR:
-				META_CONS("   %-20s\tstores in: %s\n", optp->name, optcvar->name);
-				break;
-			case CF_CMD:
-				META_CONS("   %-20s\tparsed by: %d\n", optp->name, (int) optcmd);
-				break;
-#endif
             case CF_NONE:
                 break;
         }

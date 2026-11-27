@@ -44,7 +44,6 @@
 #include "mplugin.h"      // me
 #include "metamod.h"      // GameDLL, etc
 #include "mreg.h"         // MRegCmdList::show(int), etc
-#include "mhook.h"        // class MHook
 #include "h_export.h"     // GIVE_ENGINE_FUNCTIONS_FN, etc
 #include "dllapi.h"       // FN_GAMEINIT, etc
 #include "support_meta.h" // full_gamedir_path,
@@ -819,8 +818,16 @@ mBOOL DLLINTERNAL MPlugin::query(void)
             META_WARNING("dll: Plugin '%s' is out of date and incompatible with this version of Metamod; please find a newer version of the plugin (plugin needs at least interface %s not the current %s)", desc, META_INTERFACE_VERSION, info->ifvers);
             meta_errno = ME_IFVERSION;
         }
-        // Plugin has identical major, with older minor.  This is supposed to be
-        // backwards compatible, so we warn, but we still accept it.
+        // Plugin has identical major, with older minor. Standard Metamod
+        // interfaces up to 5:13 keep the same leading mutil_funcs_t layout and
+        // remain backwards compatible. Custom 5:14..5:17 extensions used an
+        // older mutil_funcs_t layout that changed in 5:18 and must be rejected.
+        else if (pmajor == mmajor && pmajor == 5 && pminor >= 14 && pminor < 18)
+        {
+            META_WARNING("dll: Plugin '%s' uses deprecated Metamod extension interface %s (incompatible with %s; rebuild against %s)",
+                         desc, info->ifvers, META_INTERFACE_VERSION, META_INTERFACE_VERSION);
+            meta_errno = ME_IFVERSION;
+        }
         else if (pmajor == mmajor && pminor < mminor)
             META_LOG("dll: Note: plugin '%s' is using an older interface version (%s), not the latest interface version (%s); there might be an updated version of the plugin", desc, info->ifvers, META_INTERFACE_VERSION);
         else

@@ -120,13 +120,8 @@ typedef const char* (*FN_CVARGETSTRING)(const char* szVarName);
 typedef void (*FN_CVARSETFLOAT)(const char* szVarName, float flValue);
 typedef void (*FN_CVARSETSTRING)(const char* szVarName, const char* szValue);
 typedef void (*FN_ALERTMESSAGE)(ALERT_TYPE atype, const char* szFmt, ...);
-#ifdef HLSDK_3_2_OLD_EIFACE
-typedef void (*FN_ENGINEFPRINTF)(FILE* pfile, char* szFmt, ...);
-typedef void* (*FN_PVALLOCENTPRIVATEDATA)(edict_t* pEdict, long cb);
-#else
 typedef void (*FN_ENGINEFPRINTF)(void* pfile, char* szFmt, ...);
 typedef void* (*FN_PVALLOCENTPRIVATEDATA)(edict_t* pEdict, int32 cb);
-#endif
 typedef void* (*FN_PVENTPRIVATEDATA)(edict_t* pEdict);
 typedef void (*FN_FREEENTPRIVATEDATA)(edict_t* pEdict);
 typedef const char* (*FN_SZFROMINDEX)(int iString);
@@ -141,13 +136,8 @@ typedef void* (*FN_GETMODELPTR)(edict_t* pEdict);
 typedef int (*FN_REGUSERMSG)(const char* pszName, int iSize);
 typedef void (*FN_ANIMATIONAUTOMOVE)(const edict_t* pEdict, float flTime);
 typedef void (*FN_GETBONEPOSITION)(const edict_t* pEdict, int iBone, float* rgflOrigin, float* rgflAngles);
-#ifdef HLSDK_3_2_OLD_EIFACE
-typedef unsigned long (*FN_FUNCTIONFROMNAME)(const char* pName);
-typedef const char* (*FN_NAMEFORFUNCTION)(unsigned long function);
-#else
-typedef uint32 (*FN_FUNCTIONFROMNAME)(const char* pName);
-typedef const char* (*FN_NAMEFORFUNCTION)(uint32 function);
-#endif
+typedef uintptr_t (*FN_FUNCTIONFROMNAME)(const char* pName);
+typedef const char* (*FN_NAMEFORFUNCTION)(uintptr_t function);
 typedef void (*FN_CLIENTPRINTF)(edict_t* pEdict, PRINT_TYPE ptype, const char* szMsg);
 typedef void (*FN_SERVERPRINT)(const char* szMsg);
 typedef const char* (*FN_CMD_ARGS)(void);
@@ -158,11 +148,7 @@ typedef void (*FN_CRC32_INIT)(CRC32_t* pulCRC);
 typedef void (*FN_CRC32_PROCESSBUFFER)(CRC32_t* pulCRC, void* p, int len);
 typedef void (*FN_CRC32_PROCESSBYTE)(CRC32_t* pulCRC, unsigned char ch);
 typedef CRC32_t (*FN_CRC32_FINAL)(CRC32_t pulCRC);
-#ifdef HLSDK_3_2_OLD_EIFACE
-typedef long (*FN_RANDOMLONG)(long lLow, long lHigh);
-#else
 typedef int32 (*FN_RANDOMLONG)(int32 lLow, int32 lHigh);
-#endif
 typedef float (*FN_RANDOMFLOAT)(float flLow, float flHigh);
 typedef void (*FN_SETVIEW)(const edict_t* pClient, const edict_t* pViewent);
 typedef float (*FN_TIME)(void);

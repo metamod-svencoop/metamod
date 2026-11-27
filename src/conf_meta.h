@@ -54,10 +54,6 @@ typedef enum
     CF_BOOL,
     CF_STR,
     CF_PATH,
-#if 0
-	CF_CVAR,
-	CF_CMD,
-#endif
 } cf_type_t;
 
 //typedef mBOOL (*SETOPT_FN) (char *key, char *value);

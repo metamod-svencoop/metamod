@@ -17,6 +17,11 @@ C_DLLEXPORT void ConfigureFixture(int (*callback)(int), int attach_fails, int de
     reject_detach = detach_fails != 0;
 }
 
+C_DLLEXPORT void SetFixtureInterfaceVersion(const char* ifvers)
+{
+    info.ifvers = ifvers ? ifvers : META_INTERFACE_VERSION;
+}
+
 template <int Id> static int invoke()
 {
     globals->mres = MRES_IGNORED;

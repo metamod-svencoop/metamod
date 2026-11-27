@@ -39,7 +39,6 @@
 
 #include "comp_dep.h"
 #include "plinfo.h"     // plugin_info_t, etc
-#include "mhook.h"      // game_event_t, etc
 #include "sdk_util.h"   // hudtextparms_t, etc
 #include "gamesymbol.h" // meta_gamesymbol_kind_t, etc
 
@@ -54,23 +53,11 @@ typedef struct hook_s
     void*          pOldFuncAddr;
     void*          pNewFuncAddr;
     void**         pOrginalCall;
-    void*          pClass;
-    int            iTableIndex;
-    int            iFuncIndex;
-    void*          hModule;
-    const char*    pszModuleName;
-    const char*    pszFuncName;
     struct hook_s* pNext;
     void*          pInfo;
 } hook_t;
 
-#define MH_HOOK_INLINE  1
-#define MH_HOOK_VFTABLE 2
-#define MH_HOOK_IAT     3
-
-typedef void (*fnDisasmSingleCallback)(void* inst, byte* address, size_t instLen, void* context);
-typedef qboolean (*fnDisasmCallback)(void* inst, byte* address, size_t instLen, int instCount, int depth, void* context);
-typedef qboolean (*fnFindAddressCallback)(byte* address);
+#define MH_HOOK_INLINE 1
 
 // For GetGameInfo:
 typedef enum
@@ -109,43 +96,21 @@ typedef struct meta_util_funcs_s
 
     void (*pfnGetHookTables)(plid_t plid, enginefuncs_t** peng, DLL_FUNCTIONS** pdll, NEW_DLL_FUNCTIONS** pnewdll);
 
-    // 2022-07 Added by hzqst
+    // 2022-07..2026-11 Custom metamod-svencoop extensions (interface 5:18)
     void* (*pfnGetModuleBaseByHandle)(DLHANDLE hModule);
     DLHANDLE (*pfnGetModuleHandle)(const char* szModuleName);
     void* (*pfnGetModuleBaseByName)(const char* szModuleName);
-    size_t (*pfnGetImageSize)(void* ImageBase);
-    qboolean (*pfnIsAddressInModuleRange)(void* lpAddress, void* lpModuleBase);
     DLHANDLE (*pfnGetGameDllHandle)(void);
     void* (*pfnGetGameDllBase)(void);
     DLHANDLE (*pfnGetEngineHandle)(void);
     void* (*pfnGetEngineBase)(void);
-    void* (*pfnGetEngineEnd)(void);
-    void* (*pfnGetEngineCodeBase)(void);
-    void* (*pfnGetEngineCodeEnd)(void);
-    qboolean (*pfnIsValidCodePointerInEngine)(void* ptr);
-    qboolean (*pfnUnHook)(hook_t* pHook);
-    hook_t* (*pfnInlineHook)(void* pOldFuncAddr, void* pNewFuncAddr, void** pOrginalCall, bool bTranscation);
-    void* (*pfnGetNextCallAddr)(void* pAddress, int dwCount);
-    void* (*pfnSearchPattern)(void* pStartSearch, size_t dwSearchLen, const char* pPattern, size_t dwPatternLen);
-    void* (*pfnReverseSearchPattern)(void* pStartSearch, size_t dwSearchLen, const char* pPattern, size_t dwPatternLen);
-    int (*pfnDisasmSingleInstruction)(void* address, fnDisasmSingleCallback callback, void* context);
-    qboolean (*pfnDisasmRanges)(void* DisasmBase, size_t DisasmSize, fnDisasmCallback callback, int depth, void* context);
-    void* (*pfnReverseSearchFunctionBegin)(void* SearchBegin, size_t SearchSize);
-    void* (*pfnReverseSearchFunctionBeginEx)(void* SearchBegin, size_t SearchSize, fnFindAddressCallback callback);
     void (*pfnCloseModuleHandle)(DLHANDLE hModule);
     DLHANDLE (*pfnLoadLibrary)(const char* szModuleName);
     void (*pfnFreeLibrary)(DLHANDLE hModule);
     void* (*pfnGetProcAddress)(DLHANDLE hModule, const char* szProcName);
-    sv_blending_interface_t* (*pfnGetServerStudioBlendInterface)();
-    sv_blending_interface_t* (*pfnGetEngineStudioBlendInterface)();
-    server_studio_api_t* (*pfnGetEngineStudioAPI)();
-    float* (*pfnGetRotationMatrix)();
-    float* (*pfnGetBoneMatrix)();
-    // 2024-10 Added by hzqst
+    qboolean (*pfnUnHook)(hook_t* pHook);
+    hook_t* (*pfnInlineHook)(void* pOldFuncAddr, void* pNewFuncAddr, void** pOrginalCall, bool bTranscation);
     const char* (*pfnGetEngineType)();
-    void* (*pfnGetCodeBase)(void* ImageBase);
-    size_t (*pfnGetCodeSize)(void* ImageBase);
-    // 2026-10 Added by hzqst: GoldSrc_VibeSignatures gamedata (interface 5:17)
     meta_gamesymbol_status_t (*pfnResolveGameSymbol)(void* ModuleBase, const char* szSymbolName, meta_gamesymbol_kind_t ExpectedKind, void** pOutAddress);
     const char* (*pfnGetGameSymbolStatusString)(meta_gamesymbol_status_t Status);
 } mutil_funcs_t;
