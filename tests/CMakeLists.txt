@@ -257,12 +257,14 @@ if(UNIX)
             "${MMFG_TEST_COMPONENT_ROOT}/src/conf_meta.cpp"
             ${MMFG_TEST_CORE_SOURCES})
 
-    # The test includes osdep_linkent_linux.cpp itself: the code under test has
-    # internal linkage.
-    mmetest_add(mmfg_test_osdep_linkent_linux
-        LINUX_ONLY
-        SOURCES
-            "${CMAKE_CURRENT_LIST_DIR}/test_osdep_linkent_linux.cpp"
-            ${MMFG_TEST_CORE_SOURCES})
-    target_link_libraries(mmfg_test_osdep_linkent_linux PRIVATE pthread)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        # The test includes osdep_linkent_linux.cpp itself: the code under test has
+        # internal linkage.
+        mmetest_add(mmfg_test_osdep_linkent_linux
+            LINUX_ONLY
+            SOURCES
+                "${CMAKE_CURRENT_LIST_DIR}/test_osdep_linkent_linux.cpp"
+                ${MMFG_TEST_CORE_SOURCES})
+        target_link_libraries(mmfg_test_osdep_linkent_linux PRIVATE pthread)
+    endif()
 endif()

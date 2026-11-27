@@ -155,8 +155,13 @@ static int test_setup_gamedll_known_name_fallback(void)
     STRNCPY(gd.gamedir, gamedir, sizeof(gd.gamedir));
 
     ASSERT_TRUE(setup_gamedll(&gd));
-    ASSERT_STR(gd.file, "cs_i386.so");
-    snprintf(path, sizeof(path), "%s/dlls/cs_i386.so", gamedir);
+#ifdef __x86_64__
+    const char* expected_dll = "cs_amd64.so";
+#else
+    const char* expected_dll = "cs_i386.so";
+#endif
+    ASSERT_STR(gd.file, expected_dll);
+    snprintf(path, sizeof(path), "%s/dlls/%s", gamedir, expected_dll);
     ASSERT_STR(gd.pathname, path);
     ASSERT_STR(gd.desc, "Counter-Strike");
     PASS();
