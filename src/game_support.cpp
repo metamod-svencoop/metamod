@@ -161,18 +161,19 @@ mBOOL DLLINTERNAL setup_gamedll(gamedll_t* gamedll)
         knownfn = known->linux_so;
 #    ifdef __x86_64__
         //AMD64: convert _i386.so to _amd64.so
-        if ((cp = strstr(knownfn, "_i386.so")) ||
-            (cp = strstr(knownfn, "_i486.so")) ||
-            (cp = strstr(knownfn, "_i586.so")) ||
-            (cp = strstr(knownfn, "_i686.so")))
+        const char* arch_suffix = NULL;
+        if ((arch_suffix = strstr(knownfn, "_i386.so")) ||
+            (arch_suffix = strstr(knownfn, "_i486.so")) ||
+            (arch_suffix = strstr(knownfn, "_i586.so")) ||
+            (arch_suffix = strstr(knownfn, "_i686.so")))
         {
             //make sure that it's the ending that has "_iX86.so"
-            if (cp[strlen("_i386.so")] == 0)
+            if (arch_suffix[strlen("_i386.so")] == 0)
             {
                 STRNCPY(fixname_amd64, known->linux_so,
-                        MIN(((size_t)cp - (size_t)knownfn) + 1,
+                        MIN(((size_t)arch_suffix - (size_t)knownfn) + 1,
                             sizeof(fixname_amd64)));
-                strncat(fixname_amd64, "_amd64.so", sizeof(fixname_amd64));
+                strncat(fixname_amd64, "_amd64.so", sizeof(fixname_amd64) - strlen(fixname_amd64) - 1);
 
                 knownfn = fixname_amd64;
             }
