@@ -57,6 +57,8 @@
 #include "linkent.h"
 #include "gamedata.h" // GameData::Initialize, etc
 
+#include <GoldSrcExt/game_dll_proxy_host.h>
+
 cvar_t meta_version = {"metamod_version", VVERSION, FCVAR_SERVER, 0, NULL};
 
 MConfig  static_config;
@@ -88,6 +90,33 @@ int         requestid_counter = 0;
 
 DLHANDLE metamod_handle;
 int      metamod_not_loaded = 0;
+
+static goldsrcext::IGameDllProxyHost* g_pGameDllProxyHost = NULL;
+
+static bool register_gamedll_with_proxy_host(DLHANDLE hGameDll, const char* pszGameDllPath)
+{
+    if (!hGameDll || !Engine.info.m_imageHandle)
+        return false;
+
+    void* pCreateInterfaceAddr = MetaUtilFunctions.pfnGetProcAddress(Engine.info.m_imageHandle, "CreateInterface");
+    if (!pCreateInterfaceAddr)
+        return false;
+
+    typedef void* (*CreateInterfaceRawFn)(const char* name, int* returnCode);
+    CreateInterfaceRawFn pfnCreateInterface = (CreateInterfaceRawFn)pCreateInterfaceAddr;
+
+    int   returnCode = 0;
+    void* pRawHost   = pfnCreateInterface(goldsrcext::kGoldSrcGameDllProxyHostInterfaceName, &returnCode);
+    if (!pRawHost || returnCode != 0)
+        return false;
+
+    goldsrcext::IGameDllProxyHost* pProxyHost = static_cast<goldsrcext::IGameDllProxyHost*>(pRawHost);
+    if (!pProxyHost->RegisterRealGameDll((void*)hGameDll, pszGameDllPath))
+        return false;
+
+    g_pGameDllProxyHost = pProxyHost;
+    return true;
+}
 
 //2022-07 hzqst
 
@@ -132,6 +161,11 @@ void metamod_unload()
     {
         free(GameDLL.funcs.studio_blend_api);
         GameDLL.funcs.studio_blend_api = NULL;
+    }
+    if (g_pGameDllProxyHost)
+    {
+        g_pGameDllProxyHost->UnregisterRealGameDll();
+        g_pGameDllProxyHost = NULL;
     }
     if (GameDLL.handle)
     {
@@ -486,10 +520,13 @@ mBOOL DLLINTERNAL meta_load_gamedll(void)
         pfn_give_engfuncs(&meta_engfuncs, gpGlobals);
         META_DEBUG(3, ("dll: Game '%s': Called GiveFnptrsToDll", GameDLL.name));
 
-        //activate linkent-replacement after give_engfuncs so that if game dll is
-        //plugin too and uses same method we get combined export table of plugin
-        //and game dll
-        if (!init_linkent_replacement(metamod_handle, GameDLL.handle))
+        // Prefer the engine's native game-DLL proxy host when available (e.g. HLND2T),
+        // falling back to legacy in-memory export-table patching on original GoldSrc.
+        if (register_gamedll_with_proxy_host(GameDLL.handle, GameDLL.pathname))
+        {
+            META_LOG("dll: Registered real game DLL with engine proxy host");
+        }
+        else if (!init_linkent_replacement(metamod_handle, GameDLL.handle))
         {
             META_WARNING("dll: Couldn't load linkent replacement for game DLL");
             RETURN_ERRNO(mFALSE, ME_DLERROR);
