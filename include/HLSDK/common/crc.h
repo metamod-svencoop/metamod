@@ -30,7 +30,7 @@ typedef struct
 } MD5Context_t;
 
 
-typedef unsigned long CRC32_t;
+typedef unsigned int CRC32_t;
 void CRC32_Init(CRC32_t *pulCRC);
 CRC32_t CRC32_Final(CRC32_t pulCRC);
 void CRC32_ProcessBuffer(CRC32_t *pulCRC, void *p, int len);

@@ -58,8 +58,12 @@
 #    endif
 #    define PLATFORM_DLEXT ".so"
 #elif defined(_WIN32)
-#    define PLATFORM       "mswin"
-#    define PLATFORM_SPC   "win32"
+#    define PLATFORM "mswin"
+#    if defined(_WIN64)
+#        define PLATFORM_SPC "win64"
+#    else
+#        define PLATFORM_SPC "win32"
+#    endif
 #    define PLATFORM_DLEXT ".dll"
 #else /* unknown */
 #    error "OS unrecognized"

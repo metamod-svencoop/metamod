@@ -202,7 +202,7 @@ const engine_info_t engine_info = {
     {mFALSE, 9, api_caller_void_args_p, "CRC32_Init"},                 // pfnCRC32_Init
     {mFALSE, 9, api_caller_void_args_2pi, "CRC32_ProcessBuffer"},      // pfnCRC32_ProcessBuffer
     {mFALSE, 9, api_caller_void_args_puc, "CRC32_ProcessByte"},        // pfnCRC32_ProcessByte
-    {mFALSE, 9, api_caller_ulong_args_ul, "CRC32_Final"},              // pfnCRC32_Final
+    {mFALSE, 9, api_caller_uint_args_ui, "CRC32_Final"},               // pfnCRC32_Final
     {mFALSE, 16, api_caller_int_args_2i, "RandomLong"},                // pfnRandomLong
     {mFALSE, 14, api_caller_float_args_2f, "RandomFloat"},             // pfnRandomFloat		// CS: when firing
     {mFALSE, 14, api_caller_void_args_2p, "SetView"},                  // pfnSetView
