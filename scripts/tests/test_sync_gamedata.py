@@ -1,13 +1,15 @@
-"""Behavior tests for scripts/sync-gamedata.py (manifest, pruning, target, coverage)."""
+"""Behavior tests for scripts/sync-gamedata.py."""
 import dataclasses
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPTS = Path(os.environ.get("GAMEDATA_SCRIPTS_DIR", Path(__file__).resolve().parents[1]))
@@ -47,6 +49,41 @@ def snapshot(records, game_version="test-1"):
         },
         "records": records,
     }
+
+
+class DownloadTests(unittest.TestCase):
+    def test_overlapping_downloads_to_same_cache_path(self):
+        contents = sync.serialize_pruned(snapshot([]))
+        entry = sync.SnapshotEntry(
+            game_version="test-1",
+            file_name="test-1.json",
+            sha256=hashlib.sha256(contents).hexdigest(),
+            size=len(contents),
+            snapshot_schema_version=8,
+            file_count=0,
+            last_publish_time="2026-01-01T00:00:00Z",
+        )
+        url = "https://example.com/test-1.json"
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / entry.file_name
+
+            class Response(io.BytesIO):
+                headers = {}
+
+            class OverlappingResponse(Response):
+                def read(self, size):
+                    if self.tell() == 0:
+                        sync.download_snapshot(url, destination, entry)
+                    return super().read(size)
+
+            with mock.patch.object(sync, "HTTP_ATTEMPTS", 1), mock.patch.object(
+                sync, "urlopen", side_effect=[OverlappingResponse(contents), Response(contents)]
+            ):
+                sync.download_snapshot(url, destination, entry)
+
+            self.assertEqual(contents, destination.read_bytes())
+            self.assertEqual([destination], list(destination.parent.iterdir()))
 
 
 class ManifestTests(unittest.TestCase):

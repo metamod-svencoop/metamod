@@ -1004,11 +1004,8 @@ def download_snapshot(
 ) -> None:
     last_error: Optional[BaseException] = None
     for attempt in range(1, HTTP_ATTEMPTS + 1):
-        part_path = destination.with_name(destination.name + ".part")
+        part_path = None
         try:
-            if part_path.exists():
-                part_path.unlink()
-
             request = Request(
                 url,
                 headers={
@@ -1033,7 +1030,10 @@ def download_snapshot(
                             )
                         )
 
-                with part_path.open("wb") as output:
+                with tempfile.NamedTemporaryFile(
+                    dir=destination.parent, suffix=".part", delete=False
+                ) as output:
+                    part_path = Path(output.name)
                     while True:
                         chunk = response.read(64 * 1024)
                         if not chunk:
@@ -1062,8 +1062,14 @@ def download_snapshot(
                     )
                 )
 
-            part_path.replace(destination)
-            validate_snapshot_contents(destination.read_bytes(), entry)
+            validate_snapshot_contents(part_path.read_bytes(), entry)
+            try:
+                part_path.replace(destination)
+            except OSError:
+                # Windows can deny replacement while another updater reads the cache.
+                valid, _ = validate_local_snapshot(destination.parent, entry)
+                if not valid:
+                    raise
             return
         except HTTPError as error:
             if 400 <= error.code < 500:
@@ -1081,8 +1087,8 @@ def download_snapshot(
         except (URLError, HTTPException, OSError, TimeoutError) as error:
             last_error = error
         finally:
-            if part_path.exists():
-                part_path.unlink()
+            if part_path is not None:
+                part_path.unlink(missing_ok=True)
 
         if attempt < HTTP_ATTEMPTS:
             delay = HTTP_RETRY_DELAYS_SECONDS[attempt - 1]
