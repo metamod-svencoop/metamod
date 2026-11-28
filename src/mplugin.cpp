@@ -109,7 +109,11 @@ mBOOL DLLINTERNAL MPlugin::ini_parseline(const char* line)
     {
         pfspecific = 0;
     }
-    else if (strcasecmp(token, PLATFORM_SPC) == 0)
+    else if (strcasecmp(token, PLATFORM_SPC) == 0
+#ifdef PLATFORM_SPC_ALIAS
+             || strcasecmp(token, PLATFORM_SPC_ALIAS) == 0
+#endif
+    )
     {
         pfspecific = 1;
     }
@@ -358,6 +362,24 @@ char* DLLINTERNAL MPlugin::resolve_dirs(const char* path)
     // try other file prefixes in this path
     if ((found = resolve_prefix(buf)))
         return (found);
+
+    // Fallback for legacy flat "addons/metamod/dlls/<file>" plugin requests
+    // when binaries are deployed into per-architecture subdirectories.
+    static const char kMetamodDllsPrefix[] = "addons/metamod/dlls/";
+    const size_t      prefixLen            = sizeof(kMetamodDllsPrefix) - 1;
+    if (strncasecmp(path, kMetamodDllsPrefix, prefixLen) == 0)
+    {
+        const char* subpath = path + prefixLen;
+        if (subpath[0] != '\0' && strchr(subpath, '/') == NULL)
+        {
+            safevoid_snprintf(buf, sizeof(buf), "%s/%s%s/%s",
+                              GameDLL.gamedir, kMetamodDllsPrefix, PLATFORM_DLL_SUBDIR, subpath);
+            if (xxstat(buf, &st) == 0 && S_ISREG(st.st_mode))
+                return (buf);
+            if ((found = resolve_prefix(buf)))
+                return (found);
+        }
+    }
 
     safevoid_snprintf(buf, sizeof(buf), "%s/dlls/%s", GameDLL.gamedir, path);
     // try this path
