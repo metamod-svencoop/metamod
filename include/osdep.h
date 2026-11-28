@@ -52,17 +52,23 @@
 #ifdef linux
 #    define PLATFORM "linux"
 #    if defined(__x86_64__) || defined(__amd64__)
-#        define PLATFORM_SPC "lin64"
+#        define PLATFORM_SPC        "lin64"
+#        define PLATFORM_SPC_ALIAS  "linux64"
+#        define PLATFORM_DLL_SUBDIR "linux64"
 #    else
-#        define PLATFORM_SPC "lin32"
+#        define PLATFORM_SPC        "lin32"
+#        define PLATFORM_SPC_ALIAS  "linux32"
+#        define PLATFORM_DLL_SUBDIR "linux"
 #    endif
 #    define PLATFORM_DLEXT ".so"
 #elif defined(_WIN32)
 #    define PLATFORM "mswin"
 #    if defined(_WIN64)
-#        define PLATFORM_SPC "win64"
+#        define PLATFORM_SPC        "win64"
+#        define PLATFORM_DLL_SUBDIR "win64"
 #    else
-#        define PLATFORM_SPC "win32"
+#        define PLATFORM_SPC        "win32"
+#        define PLATFORM_DLL_SUBDIR "win32"
 #    endif
 #    define PLATFORM_DLEXT ".dll"
 #else /* unknown */

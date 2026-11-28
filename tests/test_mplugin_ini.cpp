@@ -7,11 +7,15 @@
 // Built with AddressSanitizer on Linux, both defects abort the process.
 //
 
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include <string.h>
 
 #include <extdll.h>
 
 #include "mplugin.h"
+#include "metamod.h"
 
 #include "mm_test_stubs.h"
 #include "test_common.h"
@@ -177,6 +181,126 @@ static int test_ini_parseline_unknown_platform(void)
     return 0;
 }
 
+static int test_ini_parseline_platform_aliases_and_arch_isolation(void)
+{
+    MPlugin plug;
+    char    line[256];
+
+    TEST("ini_parseline - generic PLATFORM accepted with pfspecific=0");
+    make_plugin(&plug);
+    snprintf(line, sizeof(line), "%s addons/metamod/dlls/test%s", PLATFORM, PLATFORM_DLEXT);
+    ASSERT_TRUE(plug.ini_parseline(line));
+    ASSERT_INT(plug.pfspecific, 0);
+    PASS();
+
+#ifdef PLATFORM_SPC_ALIAS
+    TEST("ini_parseline - PLATFORM_SPC_ALIAS accepted with pfspecific=1");
+    make_plugin(&plug);
+    snprintf(line, sizeof(line), "%s addons/metamod/dlls/%s/test%s", PLATFORM_SPC_ALIAS, PLATFORM_DLL_SUBDIR, PLATFORM_DLEXT);
+    ASSERT_TRUE(plug.ini_parseline(line));
+    ASSERT_INT(plug.pfspecific, 1);
+    PASS();
+#endif
+
+    static const char* const kOppositeTokens[] = {
+#if defined(_WIN64)
+        "win32",
+        "linux",
+        "lin32",
+        "lin64",
+        "linux32",
+        "linux64",
+#elif defined(_WIN32)
+        "win64",
+        "linux",
+        "lin32",
+        "lin64",
+        "linux32",
+        "linux64",
+#elif defined(__x86_64__) || defined(__amd64__)
+        "lin32",
+        "linux32",
+        "win32",
+        "win64",
+        "mswin",
+#else
+        "lin64",
+        "linux64",
+        "win32",
+        "win64",
+        "mswin",
+#endif
+    };
+
+    for (unsigned int i = 0; i < sizeof(kOppositeTokens) / sizeof(kOppositeTokens[0]); i++)
+    {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "ini_parseline - rejects mismatched token '%s'", kOppositeTokens[i]);
+        TEST(msg);
+        make_plugin(&plug);
+        snprintf(line, sizeof(line), "%s addons/metamod/dlls/test%s", kOppositeTokens[i], PLATFORM_DLEXT);
+        ASSERT_FALSE(plug.ini_parseline(line));
+        ASSERT_INT(meta_errno, ME_OSNOTSUP);
+        PASS();
+    }
+
+    return 0;
+}
+
+static int test_resolve_arch_subdir_fallback(void)
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::path        tempRoot = fs::temp_directory_path(ec) / ("mmfg_test_resolve_" PLATFORM_DLL_SUBDIR);
+    fs::remove_all(tempRoot, ec);
+
+    fs::path archDir    = tempRoot / "addons" / "metamod" / "dlls" / PLATFORM_DLL_SUBDIR;
+    fs::path pluginFile = archDir / (std::string("asext") + PLATFORM_DLEXT);
+    fs::create_directories(archDir, ec);
+    {
+        std::ofstream out(pluginFile, std::ios::binary);
+        out << "stub";
+    }
+
+    std::string gamedir = tempRoot.generic_string();
+    mm_test_set_gamedir(gamedir.c_str());
+    STRNCPY(GameDLL.gamedir, gamedir.c_str(), sizeof(GameDLL.gamedir));
+
+    std::string legacyRel   = std::string("addons/metamod/dlls/asext") + PLATFORM_DLEXT;
+    std::string expectedRel = std::string("addons/metamod/dlls/") + PLATFORM_DLL_SUBDIR + "/asext" + PLATFORM_DLEXT;
+    std::string expectedAbs = gamedir + "/" + expectedRel;
+#ifdef _WIN32
+    char expectedAbsNorm[PATH_MAX];
+    STRNCPY(expectedAbsNorm, expectedAbs.c_str(), sizeof(expectedAbsNorm));
+    normalize_pathname(expectedAbsNorm);
+    expectedAbs = expectedAbsNorm;
+    char gamedirNorm[PATH_MAX];
+    STRNCPY(gamedirNorm, gamedir.c_str(), sizeof(gamedirNorm));
+    normalize_pathname(gamedirNorm);
+    STRNCPY(GameDLL.gamedir, gamedirNorm, sizeof(GameDLL.gamedir));
+#endif
+
+    MPlugin plug;
+    TEST("resolve - legacy flat dlls path falls back to arch subdir");
+    make_plugin(&plug);
+    ASSERT_TRUE(plug.plugin_parseline(legacyRel.c_str(), 0));
+    ASSERT_TRUE(plug.resolve());
+    ASSERT_STR(plug.pathname, expectedAbs.c_str());
+    ASSERT_STR(plug.filename, expectedRel.c_str());
+    PASS();
+
+    TEST("resolve - explicit wrong subdir is not redirected");
+    make_plugin(&plug);
+    std::string wrongSubdirRel = std::string("addons/metamod/dlls/other/asext") + PLATFORM_DLEXT;
+    ASSERT_TRUE(plug.plugin_parseline(wrongSubdirRel.c_str(), 0));
+    ASSERT_FALSE(plug.resolve());
+    ASSERT_INT(meta_errno, ME_NOTFOUND);
+    PASS();
+
+    fs::remove_all(tempRoot, ec);
+    return 0;
+}
+
 int main(void)
 {
     int fail = 0;
@@ -192,6 +316,8 @@ int main(void)
     fail |= test_ini_parseline_os_not_supported();
     fail |= test_ini_parseline_format_error();
     fail |= test_ini_parseline_unknown_platform();
+    fail |= test_ini_parseline_platform_aliases_and_arch_isolation();
+    fail |= test_resolve_arch_subdir_fallback();
 
     printf("\n%d/%d checks passed\n", tests_passed, tests_run);
     return fail;
