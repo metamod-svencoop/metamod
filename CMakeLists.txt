@@ -18,8 +18,6 @@ add_library(metamod SHARED
     src/api_hook.cpp
     src/api_info.cpp
     src/blob.cpp
-    src/CDetour/asm/asm.cpp
-    src/CDetour/detours.cpp
     src/commands_meta.cpp
     src/conf_meta.cpp
     src/dllapi.cpp
@@ -48,9 +46,12 @@ add_library(metamod SHARED
 mmfg_configure_target(metamod)
 target_link_libraries(metamod PRIVATE Metamod::SDK)
 target_compile_definitions(metamod PRIVATE __METAMOD_BUILD__)
-target_include_directories(metamod PRIVATE src/CDetour)
-mmfg_capstone_library()
-target_link_libraries(metamod PRIVATE capstone-static Capstone::Headers)
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    target_sources(metamod PRIVATE src/CDetour/asm/asm.cpp src/CDetour/detours.cpp)
+    target_include_directories(metamod PRIVATE src/CDetour)
+    mmfg_capstone_library()
+    target_link_libraries(metamod PRIVATE capstone-static Capstone::Headers)
+endif()
 mmfg_gamedata_headers()
 target_link_libraries(metamod PRIVATE mmfg_gamedata_headers)
 mmfg_goldsrcext_headers()
@@ -61,9 +62,11 @@ if(WIN32)
     target_compile_definitions(metamod PRIVATE __INTERNALS_USE_REGPARAMS__)
 else()
     target_sources(metamod PRIVATE src/osdep_detect_gamedll_linux.cpp src/osdep_linkent_linux.cpp)
-    # Legacy engine/plugin callers may provide only 4-byte stack alignment.
-    # Keep the default 16-byte preferred alignment for SSE and outgoing calls.
-    target_compile_options(metamod PRIVATE -mincoming-stack-boundary=2)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        # Legacy engine/plugin callers may provide only 4-byte stack alignment.
+        # Keep the default 16-byte preferred alignment for SSE and outgoing calls.
+        target_compile_options(metamod PRIVATE -mincoming-stack-boundary=2)
+    endif()
     target_compile_definitions(metamod PRIVATE $<$<NOT:$<CONFIG:Debug>>:__INTERNALS_USE_REGPARAMS__>)
     mmfg_procmap_library()
     target_link_libraries(metamod PRIVATE procmap)

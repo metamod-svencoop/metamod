@@ -50,7 +50,9 @@
 #include "gamedata.h"   // GameData::Resolve, etc
 
 //2022-07 Added by hzqst
-#include "detours.h"
+#if !defined(_WIN64) && !defined(__x86_64__)
+#    include "detours.h"
+#endif
 
 #ifdef _WIN32
 
@@ -613,16 +615,21 @@ static hook_t* mutil_NewHook(int iType)
 
 static void mutil_CommitHook(hook_t* pHook)
 {
+#if !defined(_WIN64) && !defined(__x86_64__)
     if (pHook->iType == MH_HOOK_INLINE)
     {
         auto d = (CDetour*)pHook->pInfo;
 
         d->EnableDetour();
     }
+#else
+    (void)pHook;
+#endif
 }
 
 static void mutil_FreeHook(hook_t* pHook)
 {
+#if !defined(_WIN64) && !defined(__x86_64__)
     if (pHook->iType == MH_HOOK_INLINE)
     {
         auto d = (CDetour*)pHook->pInfo;
@@ -640,6 +647,7 @@ static void mutil_FreeHook(hook_t* pHook)
             pHook->pInfo = NULL;
         }
     }
+#endif
 
     delete pHook;
 }
@@ -701,7 +709,12 @@ static hook_t* mutil_InlineHook(void* pOldFuncAddr, void* pNewFuncAddr, void** p
     if (!pOldFuncAddr || !pNewFuncAddr || !pOrginalCall)
         return NULL;
     *pOrginalCall = NULL;
-    auto d        = CDetourManager::CreateDetour(pNewFuncAddr, pOrginalCall, pOldFuncAddr);
+#if defined(_WIN64) || defined(__x86_64__)
+    (void)bTranscation;
+    META_WARNING("pfnInlineHook is unsupported on 64-bit builds; use native HookChain interfaces");
+    return NULL;
+#else
+    auto d = CDetourManager::CreateDetour(pNewFuncAddr, pOrginalCall, pOldFuncAddr);
     if (!d)
         return NULL;
     hook_t* h       = mutil_NewHook(MH_HOOK_INLINE);
@@ -722,6 +735,7 @@ static hook_t* mutil_InlineHook(void* pOldFuncAddr, void* pNewFuncAddr, void** p
     }
 
     return h;
+#endif
 }
 
 static const char* mutil_GetEngineType()

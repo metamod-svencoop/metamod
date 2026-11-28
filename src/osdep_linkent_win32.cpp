@@ -41,6 +41,20 @@
 //  -- by Jussi Kivilinna
 //
 
+#if defined(_WIN64)
+
+int DLLINTERNAL init_linkent_replacement(DLHANDLE /*moduleMetamod*/, DLHANDLE /*moduleGame*/)
+{
+    META_ERROR("Legacy PE export-table patching is unsupported on x64; engine must provide IGameDllProxyHost");
+    return (0);
+}
+
+void DLLINTERNAL uninit_linkent_replacement()
+{
+}
+
+#else
+
 //
 // Reads metamod.dll and game.dll function export tables and combines theim to
 // single table that replaces metamod.dll's original table.
@@ -53,9 +67,9 @@ typedef struct sort_names_s
 } sort_names_t;
 
 //relative virtual address to virtual address
-#define rva_to_va(base, rva) ((unsigned long)base + (unsigned long)rva)
+#    define rva_to_va(base, rva) ((unsigned long)base + (unsigned long)rva)
 //virtual address to relative virtual address
-#define va_to_rva(base, va) ((unsigned long)va - (unsigned long)base)
+#    define va_to_rva(base, va)  ((unsigned long)va - (unsigned long)base)
 
 //
 // Checks module signatures and return ntheaders pointer for valid module
@@ -269,3 +283,4 @@ void DLLINTERNAL uninit_linkent_replacement()
         newNameOrdinals = NULL;
     }
 }
+#endif

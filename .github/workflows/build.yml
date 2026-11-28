@@ -10,8 +10,10 @@ permissions:
 jobs:
   native:
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-2022, ubuntu-24.04]
+        arch: [x86, x64]
         config: [Debug, Release]
     runs-on: ${{ matrix.os }}
     steps:
@@ -19,15 +21,19 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - if: runner.os == 'Linux'
+      - if: runner.os == 'Linux' && matrix.arch == 'x86'
         run: sudo apt-get update && sudo apt-get install -y gcc-multilib g++-multilib
-      - if: runner.os == 'Windows'
+      - if: runner.os == 'Windows' && matrix.arch == 'x86'
         run: cmake -S . -B build/x86/${{ matrix.config }} -A Win32 -DMMFG_METAMOD_BUILD_TESTS=ON
-      - if: runner.os == 'Linux'
+      - if: runner.os == 'Windows' && matrix.arch == 'x64'
+        run: cmake -S . -B build/x64/${{ matrix.config }} -A x64 -DMMFG_METAMOD_BUILD_TESTS=ON
+      - if: runner.os == 'Linux' && matrix.arch == 'x86'
         run: cmake -S . -B build/x86/${{ matrix.config }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DMMFG_METAMOD_BUILD_TESTS=ON
-      - run: cmake --build build/x86/${{ matrix.config }} --config ${{ matrix.config }} --parallel 4
+      - if: runner.os == 'Linux' && matrix.arch == 'x64'
+        run: cmake -S . -B build/x64/${{ matrix.config }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DMETAMOD_64BIT=ON -DMMFG_METAMOD_BUILD_TESTS=ON
+      - run: cmake --build build/${{ matrix.arch }}/${{ matrix.config }} --config ${{ matrix.config }} --parallel 4
       - name: Test native components
-        run: ctest --test-dir build/x86/${{ matrix.config }} -C ${{ matrix.config }} --output-on-failure
+        run: ctest --test-dir build/${{ matrix.arch }}/${{ matrix.config }} -C ${{ matrix.config }} --output-on-failure
       - name: Test gamedata synchronizer
         run: python -B -m unittest discover -s scripts/tests -v
-      - run: cmake --install build/x86/${{ matrix.config }} --config ${{ matrix.config }}
+      - run: cmake --install build/${{ matrix.arch }}/${{ matrix.config }} --config ${{ matrix.config }}

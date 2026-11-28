@@ -24,8 +24,15 @@ extern globalvars_t                             *gpGlobals;
 // Use this instead of ALLOC_STRING on constant strings
 //#define STRING(offset)          ((const char *)(gpGlobals->pStringBase + (int)offset))
 //#define MAKE_STRING(str)        ((int)str - (int)STRING(0))
+#if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
+// On 64-bit engines, string_t is an unsigned 32-bit offset into the engine string pool
+// and DLL constant strings can live more than 4 GB away from pStringBase.
+inline const char *STRING(string_t offset) {return (const char *)(gpGlobals->pStringBase + (unsigned int)offset);}
+inline string_t MAKE_STRING(const char *str) {return (*g_engfuncs.pfnAllocString)(str);}
+#else
 inline const char *STRING(long offset) {return (const char *)(gpGlobals->pStringBase + (long)offset);}
 inline long MAKE_STRING(const char *str) {return (long)str - (long)STRING(0);}
+#endif
 
 inline edict_t *FIND_ENTITY_BY_CLASSNAME(edict_t *entStart, const char *pszName) 
 {

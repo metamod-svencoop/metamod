@@ -426,7 +426,12 @@ extern "C" int __xstat(int ver, const char* path, struct stat* stat_buf);
 int xxstat(char const* const _FileName, struct stat* const _Stat)
 {
 #ifdef linux
+#    if defined(__x86_64__) || defined(__amd64__)
+    // glibc _STAT_VER_LINUX is 1 on x86_64 and 3 on i386.
+    return __xstat(1, _FileName, _Stat);
+#    else
     return __xstat(3, _FileName, _Stat);
+#    endif
 #elif defined(_WIN32)
     return stat(_FileName, _Stat);
 #endif

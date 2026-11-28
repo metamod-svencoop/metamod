@@ -44,13 +44,26 @@
 #include "support_meta.h"
 
 //Added by hzqst
-#include "detours.h" // ALERT, etc
-#include "mutil.h"   // ALERT, etc
+#include "mutil.h" // ALERT, etc
 
 //
 // Linux code for dynamic linkents
 //  -- by Jussi Kivilinna
 //
+
+#if defined(__x86_64__) || defined(__amd64__)
+
+int DLLINTERNAL init_linkent_replacement(DLHANDLE /*MetamodHandle*/, DLHANDLE /*GameDllHandle*/)
+{
+    META_ERROR("Legacy dlsym linkent patching is unsupported on x64; engine must provide IGameDllProxyHost");
+    return (0);
+}
+
+void DLLINTERNAL uninit_linkent_replacement()
+{
+}
+
+#else
 
 typedef void* (*dlsym_func)(void* module, const char* funcname);
 
@@ -123,3 +136,4 @@ void DLLINTERNAL uninit_linkent_replacement()
         g_dlsym_hook = NULL;
     }
 }
+#endif

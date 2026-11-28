@@ -29,6 +29,8 @@
  *
  */
 
+#include <stdint.h>
+
 #include <extdll.h> // always
 
 #include "osdep_p.h"      // me
@@ -38,12 +40,10 @@
 #define is_invalid_handle(X) ((X) == 0 || (X) == INVALID_HANDLE_VALUE)
 
 //relative virtual address to virtual address
-#define rva_to_va(base, rva) ((unsigned long)base + (unsigned long)rva)
-//virtual address to relative virtual address
-#define va_to_rva(base, va) ((unsigned long)va - (unsigned long)base)
+#define rva_to_va(base, rva) ((uintptr_t)(base) + (uintptr_t)(DWORD)(rva))
 
 //
-static unsigned long DLLINTERNAL_NOVIS va_to_mapaddr(void* mapview, IMAGE_SECTION_HEADER* sections, int num_sects, unsigned long vaddr)
+static uintptr_t DLLINTERNAL_NOVIS va_to_mapaddr(void* mapview, IMAGE_SECTION_HEADER* sections, int num_sects, DWORD vaddr)
 {
     for (int i = 0; i < num_sects; i++)
         if (vaddr >= sections[i].VirtualAddress && vaddr < sections[i].VirtualAddress + sections[i].SizeOfRawData)
@@ -57,13 +57,13 @@ static IMAGE_NT_HEADERS* DLLINTERNAL_NOVIS get_ntheaders(void* mapview)
 {
     union
     {
-        unsigned long     mem;
+        uintptr_t         mem;
         IMAGE_DOS_HEADER* dos;
         IMAGE_NT_HEADERS* pe;
     } mem;
 
     //Check if valid dos header
-    mem.mem = (unsigned long)mapview;
+    mem.mem = (uintptr_t)mapview;
     if (IsBadReadPtr(mem.dos, sizeof(*mem.dos)) || mem.dos->e_magic != IMAGE_DOS_SIGNATURE)
         return (0);
 
@@ -80,7 +80,7 @@ static IMAGE_EXPORT_DIRECTORY* DLLINTERNAL_NOVIS get_export_table(void* mapview,
 {
     union
     {
-        unsigned long           mem;
+        uintptr_t               mem;
         void*                   pvoid;
         IMAGE_DOS_HEADER*       dos;
         IMAGE_NT_HEADERS*       pe;
@@ -175,8 +175,8 @@ mBOOL DLLINTERNAL is_gamedll(const char* filename)
     }
 
     //
-    unsigned long* names = (unsigned long*)va_to_mapaddr(mapview, sections, num_sects, exports->AddressOfNames);
-    if (IsBadReadPtr(names, exports->NumberOfNames * sizeof(unsigned long)))
+    DWORD* names = (DWORD*)va_to_mapaddr(mapview, sections, num_sects, exports->AddressOfNames);
+    if (IsBadReadPtr(names, exports->NumberOfNames * sizeof(DWORD)))
     {
         META_DEBUG(3, ("is_gamedll(%s): Pointer to exported function names is invalid.", filename));
         UnmapViewOfFile(mapview);

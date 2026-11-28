@@ -66,13 +66,13 @@ static unsigned int call_count = 0;
 // get function pointer from api table by function pointer offset
 inline void* DLLINTERNAL get_api_function(const void* api_table, unsigned int func_offset)
 {
-    return (*(void**)((unsigned long)api_table + func_offset));
+    return (*(void**)((uintptr_t)api_table + func_offset));
 }
 
 // get data pointer from api_info table by function offset
 inline const api_info_t* DLLINTERNAL get_api_info(enum_api_t api, unsigned int api_info_offset)
 {
-    return ((const api_info_t*)((unsigned long)api_info_tables[api] + api_info_offset));
+    return ((const api_info_t*)((uintptr_t)api_info_tables[api] + api_info_offset));
 }
 
 // simplified 'void' version of main hook function

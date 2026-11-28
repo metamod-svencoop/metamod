@@ -601,7 +601,7 @@ static void mm_CRC32_ProcessByte(CRC32_t* pulCRC, unsigned char ch)
 }
 static CRC32_t mm_CRC32_Final(CRC32_t pulCRC)
 {
-    META_ENGINE_HANDLE(CRC32_t, 0, FN_CRC32_FINAL, pfnCRC32_Final, ul, (pulCRC));
+    META_ENGINE_HANDLE(CRC32_t, 0, FN_CRC32_FINAL, pfnCRC32_Final, ui, (pulCRC));
     RETURN_API(CRC32_t)
 }
 
