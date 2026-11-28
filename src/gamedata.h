@@ -31,6 +31,9 @@ std::string GetDiagnostics();
 // Look up a record by module CRC-64 and symbolName.
 meta_gamesymbol_status_t QueryByCRC64(uint64_t moduleCRC64, const char* symbolName, meta_gamesymbol_kind_t* outKind, uint32_t* outRva, uint32_t* outSize);
 
+// Look up a virtualFunction record's vtable slot index by module CRC-64 and symbolName.
+meta_gamesymbol_status_t QueryVFuncIndexByCRC64(uint64_t moduleCRC64, const char* symbolName, uint32_t* outVFuncIndex);
+
 // CRC-64/XZ of a file on disk.
 meta_gamesymbol_status_t ComputeFileCRC64(const char* path, uint64_t* outCRC64);
 
@@ -48,6 +51,9 @@ uint32_t GetRegisteredImageSize(void* moduleBase);
 
 // Resolve symbolName in the loaded module at moduleBase to moduleBase + rva.
 meta_gamesymbol_status_t Resolve(void* moduleBase, const char* symbolName, meta_gamesymbol_kind_t expectedKind, void** outAddress);
+
+// Resolve a virtualFunction record in the loaded module at moduleBase to its vtable slot index.
+meta_gamesymbol_status_t ResolveVFuncIndex(void* moduleBase, const char* symbolName, uint32_t* outVFuncIndex);
 
 const char* GetStatusString(meta_gamesymbol_status_t status);
 } // namespace GameData

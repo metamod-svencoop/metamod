@@ -153,6 +153,45 @@ class PruneTests(unittest.TestCase):
         self.assertEqual({"func_rva": "0x2000", "func_size": "0x10"}, payloads[("linux", "Common")])
         self.assertEqual({"gv_rva": "0x3000"}, payloads[("windows", "g_var")])
 
+    def test_virtual_function_pruning_keeps_consumed_fields(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "manifest.json"
+        path.write_text(json.dumps({
+            "schemaVersion": 1, "name": "test-vfunc", "gameVersions": ["test-1"],
+            "symbols": {"server": {"CBaseEntity_TakeHealth": "virtualFunction",
+                                   "CBaseEntity_SlotOnly": "virtualFunction"}},
+        }), encoding="utf-8")
+        manifest = sync.load_manifest(path)
+        doc = snapshot([
+            record("windows", "server", "CBaseEntity_TakeHealth", "virtualFunction", {
+                "vfunc_index": 24, "vtable_name": "CBaseEntity",
+                "func_rva": "0x1234", "func_size": "0x40",
+                "vfunc_offset": "0x60", "vfunc_sig": "55 8B EC",
+            }),
+            record("linux", "server", "CBaseEntity_TakeHealth", "virtualFunction", {
+                "vfunc_index": 25, "vtable_name": "CBaseEntity",
+                "func_rva": "0x2234", "func_size": "0x50",
+                "vfunc_offset": "0x64", "vfunc_sig": "55 89 E5",
+            }),
+            record("windows", "server", "CBaseEntity_SlotOnly", "virtualFunction", {
+                "vfunc_index": 4, "vtable_name": "CBaseEntity", "vfunc_offset": "0x10",
+            }),
+            record("linux", "server", "CBaseEntity_SlotOnly", "virtualFunction", {
+                "vfunc_index": 5, "vtable_name": "CBaseEntity", "vfunc_offset": "0x14",
+            }),
+        ])
+        result = sync.prune_snapshot(doc, manifest, "test-1")
+        payloads = {(r["platform"], r["symbolName"]): r["payload"] for r in result["records"]}
+        self.assertEqual(
+            {"vfunc_index": 24, "vtable_name": "CBaseEntity", "func_rva": "0x1234", "func_size": "0x40"},
+            payloads[("windows", "CBaseEntity_TakeHealth")],
+        )
+        self.assertEqual(
+            {"vfunc_index": 5, "vtable_name": "CBaseEntity"},
+            payloads[("linux", "CBaseEntity_SlotOnly")],
+        )
+
     def test_binaries_keep_crc64_of_used_modules(self):
         result = sync.prune_snapshot(self.document, self.manifest, "test-1")
         self.assertEqual({

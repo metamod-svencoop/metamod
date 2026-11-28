@@ -79,6 +79,16 @@ std::string Global(const char* rva)
     return std::string("{\"gv_rva\":\"") + rva + "\"}";
 }
 
+std::string VirtualFunction(int index, const char* vtable, const char* rva = NULL, const char* size = NULL)
+{
+    std::string out = std::string("{\"vfunc_index\":") + std::to_string(index) + ",\"vtable_name\":\"" + vtable + "\"";
+    if (rva)
+        out += std::string(",\"func_rva\":\"") + rva + "\"";
+    if (size)
+        out += std::string(",\"func_size\":\"") + size + "\"";
+    return out + "}";
+}
+
 std::string Snapshot(const std::vector<std::string>& records, int snapshotSchemaVersion = 5)
 {
     std::string json = "{\"schemaVersion\":" + std::to_string(snapshotSchemaVersion) +
@@ -201,6 +211,11 @@ int main()
                         Record(kOtherPlatform, "self", "Func", "function", Function("0x2000", "0x20")),
                         Record(kOtherPlatform, "self", "OtherPlatformOnly", "function", Function("0x3000", "0x10")),
                         Record(kPlatform, "self", "Var", "global", Global("0x1100")),
+                        Record(kPlatform, "self", "VFuncAddr", "virtualFunction", VirtualFunction(12, "CBaseEntity", "0x1150", "0x24")),
+                        Record(kPlatform, "self", "VFuncSlotOnly", "virtualFunction", VirtualFunction(7, "CBaseEntity")),
+                        Record(kPlatform, "self", "VFuncConflict", "virtualFunction", VirtualFunction(9, "CBaseEntity", "0x1180", "0x10")),
+                        Record(kPlatform, "self", "BadVFuncNeg", "virtualFunction", VirtualFunction(-1, "CBaseEntity")),
+                        Record(kPlatform, "self", "BadVFuncPartial", "virtualFunction", VirtualFunction(3, "CBaseEntity", "0x1190", NULL)),
                         Record(kPlatform, "self", "VTable", "vtable", "{}"),
                         Record(kPlatform, "self", "OutOfImage", "function", Function(kOutOfImageRva, "0x10")),
                         Record(kPlatform, "self", "Dup", "function", Function("0x1200", "0x10")),
@@ -217,6 +232,7 @@ int main()
                     Snapshot({
                         Record(kPlatform, "self", "Dup", "function", Function("0x1200", "0x10")),
                         Record(kPlatform, "self", "Conflict", "function", Function("0x1310", "0x10")),
+                        Record(kPlatform, "self", "VFuncConflict", "virtualFunction", VirtualFunction(10, "CBaseEntity", "0x1180", "0x10")),
                         Record(kPlatform, "self", "PluginB", "global", Global("0x1700")),
                     })},
                    {"v3", "v3.json", Snapshot({Record(kPlatform, "self", "WrongSchema", "function", Function("0x1800", "0x10"))}, 4)},
@@ -247,6 +263,9 @@ int main()
         void* address = (void*)1;
         ASSERT_INT(GameData::Resolve(SelfBase(), "Func", META_GAMESYMBOL_KIND_FUNCTION, &address), META_GAMESYMBOL_GAMEDATA_UNAVAILABLE);
         ASSERT_PTR_NULL(address);
+        uint32_t vfuncIndex = 99;
+        ASSERT_INT(GameData::ResolveVFuncIndex(SelfBase(), "VFuncAddr", &vfuncIndex), META_GAMESYMBOL_GAMEDATA_UNAVAILABLE);
+        ASSERT_INT(vfuncIndex, 0);
     }
     PASS();
 
@@ -307,6 +326,40 @@ int main()
         ASSERT_PTR_EQ(address, (char*)base + 0x1000);
         ASSERT_INT(GameData::Resolve(base, "Var", META_GAMESYMBOL_KIND_GLOBAL, &address), META_GAMESYMBOL_OK);
         ASSERT_PTR_EQ(address, (char*)base + 0x1100);
+        ASSERT_INT(GameData::Resolve(base, "VFuncAddr", META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION, &address), META_GAMESYMBOL_OK);
+        ASSERT_PTR_EQ(address, (char*)base + 0x1150);
+    }
+    PASS();
+
+    TEST("gamedata - virtualFunction resolves slot indices and rejects addressless slots for Resolve");
+    {
+        uint32_t idx = 0;
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "VFuncAddr", &idx), META_GAMESYMBOL_OK);
+        ASSERT_INT(idx, 12);
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "VFuncSlotOnly", &idx), META_GAMESYMBOL_OK);
+        ASSERT_INT(idx, 7);
+
+        void* address = (void*)1;
+        ASSERT_INT(GameData::Resolve(base, "VFuncSlotOnly", META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION, &address), META_GAMESYMBOL_SYMBOL_NOT_FOUND);
+        ASSERT_PTR_NULL(address);
+        ASSERT_INT(GameData::Resolve(base, "VFuncAddr", META_GAMESYMBOL_KIND_FUNCTION, &address), META_GAMESYMBOL_KIND_MISMATCH);
+        ASSERT_PTR_NULL(address);
+
+        idx = 42;
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "Func", &idx), META_GAMESYMBOL_KIND_MISMATCH);
+        ASSERT_INT(idx, 0);
+        idx = 42;
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "VTable", &idx), META_GAMESYMBOL_UNSUPPORTED_KIND);
+        ASSERT_INT(idx, 0);
+        idx = 42;
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "VFuncConflict", &idx), META_GAMESYMBOL_CATALOG_CONFLICT);
+        ASSERT_INT(idx, 0);
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "BadVFuncNeg", &idx), META_GAMESYMBOL_SYMBOL_NOT_FOUND);
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "BadVFuncPartial", &idx), META_GAMESYMBOL_SYMBOL_NOT_FOUND);
+        ASSERT_INT(GameData::ResolveVFuncIndex(NULL, "VFuncAddr", &idx), META_GAMESYMBOL_INVALID_ARGUMENT);
+        ASSERT_INT(GameData::ResolveVFuncIndex(base, "VFuncAddr", NULL), META_GAMESYMBOL_INVALID_ARGUMENT);
+        ASSERT_TRUE(HasDiagnostic("symbol 'BadVFuncNeg'"));
+        ASSERT_TRUE(HasDiagnostic("symbol 'BadVFuncPartial'"));
     }
     PASS();
 

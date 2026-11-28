@@ -753,6 +753,11 @@ static const char* mutil_GetGameSymbolStatusString(meta_gamesymbol_status_t Stat
     return GameData::GetStatusString(Status);
 }
 
+static meta_gamesymbol_status_t mutil_ResolveGameVFuncIndex(void* ModuleBase, const char* szSymbolName, uint32_t* pOutVFuncIndex)
+{
+    return GameData::ResolveVFuncIndex(ModuleBase, szSymbolName, pOutVFuncIndex);
+}
+
 // Meta Utility Function table.
 mutil_funcs_t MetaUtilFunctions = {
     mutil_LogConsole,               // pfnLogConsole
@@ -791,4 +796,5 @@ mutil_funcs_t MetaUtilFunctions = {
     mutil_GetEngineType,
     mutil_ResolveGameSymbol,
     mutil_GetGameSymbolStatusString,
+    mutil_ResolveGameVFuncIndex,
 };

@@ -62,6 +62,7 @@ KIND_LITERALS = frozenset(
     {
         "function",
         "global",
+        "virtualFunction",
     }
 )
 
@@ -77,6 +78,7 @@ CACHE_RAW_INDEX_FILE_NAME = "index.json"
 CONSUMED_PAYLOAD_FIELDS: Dict[str, Tuple[str, ...]] = {
     "function": ("func_rva", "func_size"),
     "global": ("gv_rva",),
+    "virtualFunction": ("vfunc_index", "vtable_name", "func_rva", "func_size"),
 }
 
 # Snapshot top-level members metamod gamedata.cpp reads. A manifest may drop any of

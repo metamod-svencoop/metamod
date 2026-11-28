@@ -113,6 +113,7 @@ typedef struct meta_util_funcs_s
     const char* (*pfnGetEngineType)();
     meta_gamesymbol_status_t (*pfnResolveGameSymbol)(void* ModuleBase, const char* szSymbolName, meta_gamesymbol_kind_t ExpectedKind, void** pOutAddress);
     const char* (*pfnGetGameSymbolStatusString)(meta_gamesymbol_status_t Status);
+    meta_gamesymbol_status_t (*pfnResolveGameVFuncIndex)(void* ModuleBase, const char* szSymbolName, uint32_t* pOutVFuncIndex);
 } mutil_funcs_t;
 extern mutil_funcs_t MetaUtilFunctions DLLHIDDEN;
 
