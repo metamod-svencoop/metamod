@@ -41,6 +41,21 @@
 // A global resolves to the address of the variable itself.
 #define VAR_FROM_GAMEDATA(dll, name) RESOLVE_FROM_GAMEDATA(dll, name, META_GAMESYMBOL_KIND_GLOBAL, name)
 
+// Resolve name##_GameSymbol (a virtualFunction gamedata record) to its owning
+// vtable slot index in the module at dll##Base.
+#define RESOLVE_VFUNC_INDEX_FROM_GAMEDATA(dll, name, out)                                                                                                                                            \
+    do                                                                                                                                                                                               \
+    {                                                                                                                                                                                                \
+        uint32_t name##_GameVFuncIndex  = 0;                                                                                                                                                         \
+        auto     name##_GameVFuncStatus = gpMetaUtilFuncs->pfnResolveGameVFuncIndex(dll##Base, name##_GameSymbol, &name##_GameVFuncIndex);                                                           \
+        if (name##_GameVFuncStatus != META_GAMESYMBOL_OK)                                                                                                                                            \
+        {                                                                                                                                                                                            \
+            LOG_ERROR(PLID, "Failed to resolve vfunc index for " #name " (\"%s\") from " #dll " dll: %s", name##_GameSymbol, gpMetaUtilFuncs->pfnGetGameSymbolStatusString(name##_GameVFuncStatus)); \
+            return FALSE;                                                                                                                                                                            \
+        }                                                                                                                                                                                            \
+        out = name##_GameVFuncIndex;                                                                                                                                                                 \
+    } while (0)
+
 #ifdef _WIN32
 
 #    define ENGINE_DLL_NAME "hw.dll"

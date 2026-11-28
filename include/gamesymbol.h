@@ -1,6 +1,8 @@
 #ifndef GAMESYMBOL_H
 #define GAMESYMBOL_H
 
+#include <stdint.h>
+
 // Game symbol catalog types shared by metamod and its plugins.
 //
 // The catalog is built from GoldSrc_VibeSignatures gamedata installed under
@@ -10,9 +12,10 @@
 
 typedef enum meta_gamesymbol_kind_e
 {
-    META_GAMESYMBOL_KIND_UNKNOWN  = 0,
-    META_GAMESYMBOL_KIND_FUNCTION = 1,
-    META_GAMESYMBOL_KIND_GLOBAL   = 2,
+    META_GAMESYMBOL_KIND_UNKNOWN          = 0,
+    META_GAMESYMBOL_KIND_FUNCTION         = 1,
+    META_GAMESYMBOL_KIND_GLOBAL           = 2,
+    META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION = 5,
 } meta_gamesymbol_kind_t;
 
 typedef enum meta_gamesymbol_status_e

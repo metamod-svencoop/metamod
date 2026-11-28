@@ -2,8 +2,9 @@
 //
 // Differences from the launcher implementation:
 //  - records of the current platform are loaded ("windows" or "linux");
-//  - only function and global records are typed, other kinds are kept as
-//    unsupported so a query reports UNSUPPORTED_KIND instead of NOT_FOUND;
+//  - function, global and virtualFunction records are typed, other kinds are
+//    kept as unsupported so a query reports UNSUPPORTED_KIND instead of
+//    NOT_FOUND;
 //  - BLOB engines register their original file and mapped ranges internally;
 //  - every index.json under the gamedata root is optional and merged.
 
@@ -57,6 +58,8 @@ struct GameSymbolRecord
     meta_gamesymbol_kind_t kind            = META_GAMESYMBOL_KIND_UNKNOWN;
     uint32_t               rva             = 0;
     uint32_t               size            = 0;
+    uint32_t               vfuncIndex      = 0;
+    bool                   hasAddress      = true;
     bool                   unsupportedKind = false;
     bool                   conflicted      = false;
 };
@@ -278,8 +281,57 @@ bool NormalizeGlobal(const rapidjson::Value& payload, GameSymbolRecord& rec, std
         error = "invalid gv_rva";
         return false;
     }
-    rec.kind = META_GAMESYMBOL_KIND_GLOBAL;
-    rec.size = 0;
+    rec.kind       = META_GAMESYMBOL_KIND_GLOBAL;
+    rec.size       = 0;
+    rec.hasAddress = true;
+    return true;
+}
+
+// A virtualFunction carries an owning vtable slot index (vfunc_index) and
+// optionally an entry-point address (func_rva + func_size). Slot-only
+// declarations (no func_rva/func_size) are stored so ResolveVFuncIndex can
+// still query their slot index, while address Resolve reports SYMBOL_NOT_FOUND.
+bool NormalizeVirtualFunction(const rapidjson::Value& payload, GameSymbolRecord& rec, std::string& error)
+{
+    const rapidjson::Value* vfuncIndex = FindMember(payload, "vfunc_index");
+    const rapidjson::Value* vtableName = FindMember(payload, "vtable_name");
+    if (!vfuncIndex || !vfuncIndex->IsInt() || vfuncIndex->GetInt() < 0 || !vtableName || !vtableName->IsString() || vtableName->GetStringLength() == 0)
+    {
+        error = "virtualFunction payload is missing/invalid vfunc_index/vtable_name";
+        return false;
+    }
+
+    const rapidjson::Value* funcRva  = FindMember(payload, "func_rva");
+    const rapidjson::Value* funcSize = FindMember(payload, "func_size");
+    if (!funcRva && !funcSize)
+    {
+        rec.kind       = META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION;
+        rec.rva        = 0;
+        rec.size       = 0;
+        rec.vfuncIndex = static_cast<uint32_t>(vfuncIndex->GetInt());
+        rec.hasAddress = false;
+        return true;
+    }
+
+    if (!funcRva || !funcRva->IsString() || !funcSize || !funcSize->IsString())
+    {
+        error = "virtualFunction payload is missing/invalid func_rva/func_size";
+        return false;
+    }
+    if (!ParseHexU32(funcRva->GetString(), rec.rva))
+    {
+        error = "invalid func_rva";
+        return false;
+    }
+    if (!ParseHexU32(funcSize->GetString(), rec.size))
+    {
+        error = "invalid func_size";
+        return false;
+    }
+
+    rec.kind       = META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION;
+    rec.vfuncIndex = static_cast<uint32_t>(vfuncIndex->GetInt());
+    rec.hasAddress = true;
     return true;
 }
 
@@ -299,7 +351,7 @@ void AddRecord(uint64_t crc64, const char* moduleName, const char* gameVersion, 
     }
 
     GameSymbolRecord& existing = it->second;
-    if (existing.kind != rec.kind || existing.rva != rec.rva || existing.size != rec.size || existing.unsupportedKind != rec.unsupportedKind)
+    if (existing.kind != rec.kind || existing.rva != rec.rva || existing.size != rec.size || existing.vfuncIndex != rec.vfuncIndex || existing.hasAddress != rec.hasAddress || existing.unsupportedKind != rec.unsupportedKind)
     {
         existing.conflicted = true;
         AddDiagnostic("symbol '%s' (crc64 %016llx, %s) has conflicting duplicate records", symbolName, (unsigned long long)crc64, gameVersion);
@@ -421,9 +473,11 @@ void LoadSnapshot(const std::string& indexDir, const char* gameVersion, const ch
         std::string             error;
         bool                    ok = true;
         if (!strcmp(kind, "function"))
-            ok = payload && NormalizeFunction(*payload, record, error);
+            ok = payload && payload->IsObject() && NormalizeFunction(*payload, record, error);
         else if (!strcmp(kind, "global"))
-            ok = payload && NormalizeGlobal(*payload, record, error);
+            ok = payload && payload->IsObject() && NormalizeGlobal(*payload, record, error);
+        else if (!strcmp(kind, "virtualFunction"))
+            ok = payload && payload->IsObject() && NormalizeVirtualFunction(*payload, record, error);
         else
             record.unsupportedKind = true;
 
@@ -692,10 +746,43 @@ meta_gamesymbol_status_t QueryByCRC64(uint64_t moduleCRC64, const char* symbolNa
         return META_GAMESYMBOL_CATALOG_CONFLICT;
     if (rec.unsupportedKind)
         return META_GAMESYMBOL_UNSUPPORTED_KIND;
+    if (!rec.hasAddress)
+        return META_GAMESYMBOL_SYMBOL_NOT_FOUND;
 
     *outKind = rec.kind;
     *outRva  = rec.rva;
     *outSize = rec.size;
+    return META_GAMESYMBOL_OK;
+}
+
+meta_gamesymbol_status_t QueryVFuncIndexByCRC64(uint64_t moduleCRC64, const char* symbolName, uint32_t* outVFuncIndex)
+{
+    if (!outVFuncIndex)
+        return META_GAMESYMBOL_INVALID_ARGUMENT;
+    *outVFuncIndex = 0;
+
+    if (!symbolName || !*symbolName)
+        return META_GAMESYMBOL_INVALID_ARGUMENT;
+    if (!g_catalog.available)
+        return META_GAMESYMBOL_GAMEDATA_UNAVAILABLE;
+
+    auto moduleIt = g_catalog.modules.find(moduleCRC64);
+    if (moduleIt == g_catalog.modules.end())
+        return META_GAMESYMBOL_MODULE_NOT_FOUND;
+
+    auto symbolIt = moduleIt->second.symbols.find(symbolName);
+    if (symbolIt == moduleIt->second.symbols.end())
+        return META_GAMESYMBOL_SYMBOL_NOT_FOUND;
+
+    const GameSymbolRecord& rec = symbolIt->second;
+    if (rec.conflicted)
+        return META_GAMESYMBOL_CATALOG_CONFLICT;
+    if (rec.unsupportedKind)
+        return META_GAMESYMBOL_UNSUPPORTED_KIND;
+    if (rec.kind != META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION)
+        return META_GAMESYMBOL_KIND_MISMATCH;
+
+    *outVFuncIndex = rec.vfuncIndex;
     return META_GAMESYMBOL_OK;
 }
 
@@ -733,7 +820,7 @@ meta_gamesymbol_status_t Resolve(void* moduleBase, const char* symbolName, meta_
 
     if (!moduleBase || !symbolName || !*symbolName)
         return META_GAMESYMBOL_INVALID_ARGUMENT;
-    if (expectedKind != META_GAMESYMBOL_KIND_FUNCTION && expectedKind != META_GAMESYMBOL_KIND_GLOBAL)
+    if (expectedKind != META_GAMESYMBOL_KIND_FUNCTION && expectedKind != META_GAMESYMBOL_KIND_GLOBAL && expectedKind != META_GAMESYMBOL_KIND_VIRTUAL_FUNCTION)
         return META_GAMESYMBOL_INVALID_ARGUMENT;
     if (!g_catalog.available)
         return META_GAMESYMBOL_GAMEDATA_UNAVAILABLE;
@@ -770,6 +857,25 @@ meta_gamesymbol_status_t Resolve(void* moduleBase, const char* symbolName, meta_
 
     *outAddress = (char*)moduleBase + rva;
     return META_GAMESYMBOL_OK;
+}
+
+meta_gamesymbol_status_t ResolveVFuncIndex(void* moduleBase, const char* symbolName, uint32_t* outVFuncIndex)
+{
+    if (!outVFuncIndex)
+        return META_GAMESYMBOL_INVALID_ARGUMENT;
+    *outVFuncIndex = 0;
+
+    if (!moduleBase || !symbolName || !*symbolName)
+        return META_GAMESYMBOL_INVALID_ARGUMENT;
+    if (!g_catalog.available)
+        return META_GAMESYMBOL_GAMEDATA_UNAVAILABLE;
+
+    uint64_t                 crc64  = 0;
+    meta_gamesymbol_status_t status = GetModuleCRC64(moduleBase, crc64);
+    if (status != META_GAMESYMBOL_OK)
+        return status;
+
+    return QueryVFuncIndexByCRC64(crc64, symbolName, outVFuncIndex);
 }
 
 const char* GetStatusString(meta_gamesymbol_status_t status)
